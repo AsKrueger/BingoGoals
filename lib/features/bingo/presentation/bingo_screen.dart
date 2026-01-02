@@ -11,10 +11,27 @@ class BingoScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final board = ref.watch(bingoProvider);
+    final bingoState = ref.watch(bingoProvider);
+    final board = bingoState.activeBoard;
     final notifier = ref.read(bingoProvider.notifier);
 
-    if (board == null) return const Scaffold(body: Center(child: Text('Crea tu bingo para empezar')));
+    if (board == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('No tienes ningún cartón activo'),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/setup'),
+                child: const Text('CREAR BINGO'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final themeData = getThemeData(board.style.themeType);
 
@@ -156,7 +173,22 @@ Widget buildBingoHeader(BuildContext context, BingoBoard board, BingoThemeData t
                     fontFamily: 'Indie Flower',
                   ),
                 ),
-                const Icon(Icons.share, color: Colors.white),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.collections_bookmark, color: Colors.white),
+                      onPressed: () => Navigator.pushNamed(context, '/collection'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share, color: Colors.white),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.white),
+                      onPressed: () => Navigator.pushNamed(context, '/settings'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

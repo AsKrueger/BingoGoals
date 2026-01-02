@@ -18,7 +18,8 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final board = ref.watch(bingoProvider);
+    final bingoState = ref.watch(bingoProvider);
+    final board = bingoState.activeBoard;
     final notifier = ref.read(bingoProvider.notifier);
 
     if (board == null) return const Scaffold(body: Center(child: Text('No hay datos')));
@@ -76,19 +77,19 @@ class SettingsScreen extends ConsumerWidget {
             leading: const Icon(Icons.delete_forever, color: Colors.red),
             title: const Text('Reiniciar Bingo', style: TextStyle(color: Colors.red)),
             subtitle: const Text('Elimina el tablero actual permanentemente'),
-            onTap: () => _showDeleteConfirmation(context, notifier),
+            onTap: () => _showDeleteConfirmation(context, notifier, board.id),
           ),
         ],
       ),
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, BingoNotifier notifier) {
+  void _showDeleteConfirmation(BuildContext context, BingoNotifier notifier, String boardId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('¿Estás seguro?'),
-        content: const Text('Esta acción borrará todo tu progreso actual de forma permanente.'),
+        content: const Text('Esta acción borrará este cartón de forma permanente.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -96,8 +97,8 @@ class SettingsScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () {
-              notifier.deleteBoard();
-              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+              notifier.deleteBoard(boardId);
+              Navigator.of(context).pushNamedAndRemoveUntil('/collection', (route) => false);
             },
             child: const Text('BORRAR TODO', style: TextStyle(color: Colors.red)),
           ),

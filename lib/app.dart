@@ -8,13 +8,15 @@ import 'features/onboarding/presentation/welcome_screen.dart';
 import 'features/settings/presentation/settings_screen.dart';
 import 'features/history/presentation/history_screen.dart';
 import 'features/bingo/presentation/bingo_provider.dart';
+import 'features/bingo/presentation/board_collection_screen.dart';
 
 class BingoGoalsApp extends ConsumerWidget {
   const BingoGoalsApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final board = ref.watch(bingoProvider);
+    final bingoState = ref.watch(bingoProvider);
+    final board = bingoState.activeBoard;
     
     final primaryColor = board != null 
         ? Color(board.style.primaryColor) 
@@ -48,6 +50,7 @@ class BingoGoalsApp extends ConsumerWidget {
         '/stats': (context) => const StatsScreen(),
         '/settings': (context) => const SettingsScreen(),
         '/history': (context) => const HistoryScreen(),
+        '/collection': (context) => const BoardCollectionScreen(),
       },
     );
   }

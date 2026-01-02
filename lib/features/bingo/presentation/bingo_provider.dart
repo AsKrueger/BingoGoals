@@ -6,38 +6,91 @@ import '../../history/presentation/history_provider.dart';
 
 enum WinType { none, line, fullBingo }
 
-class WinState {
-  final WinType type;
-  final Set<int> completedLines; // Índices de líneas ya premiadas para no repetir aviso
+class BingoState {
+  final List<BingoBoard> boards;
+  final String? activeBoardId;
 
-  WinState({this.type = WinType.none, this.completedLines = const {}});
+  BingoState({this.boards = const [], this.activeBoardId});
+
+  BingoBoard? get activeBoard => 
+    activeBoardId == null ? null : boards.firstWhere((b) => b.id == activeBoardId, orElse: () => boards.first);
+
+  BingoState copyWith({List<BingoBoard>? boards, String? activeBoardId}) {
+    return BingoState(
+      boards: boards ?? this.boards,
+      activeBoardId: activeBoardId ?? this.activeBoardId,
+    );
+  }
 }
 
-final bingoProvider = StateNotifierProvider<BingoNotifier, BingoBoard?>((ref) {
+final bingoProvider = StateNotifierProvider<BingoNotifier, BingoState>((ref) {
   return BingoNotifier(ref);
 });
 
-class BingoNotifier extends StateNotifier<BingoBoard?> {
+class BingoNotifier extends StateNotifier<BingoState> {
   final Ref _ref;
-  Set<String> _notifiedLines = {}; // IDs de líneas (ej: "row_0") ya notificadas en esta sesión
+  final Set<String> _notifiedLines = {}; // Memoria de líneas ya premiadas para evitar repeticiones
 
-  BingoNotifier(this._ref) : super(null) {
+  BingoNotifier(this._ref) : super(BingoState()) {
     _loadFromStorage();
   }
 
   final _box = Hive.box('bingo_box');
 
   void _loadFromStorage() {
-    final savedData = _box.get('current_board');
+    final List<dynamic>? savedData = _box.get('all_boards');
+    final String? activeId = _box.get('active_board_id');
+    
     if (savedData != null) {
-      state = BingoBoard.fromJson(Map<String, dynamic>.from(savedData));
+      final boards = savedData.map((e) => BingoBoard.fromJson(Map<String, dynamic>.from(e))).toList();
+      state = state.copyWith(boards: boards, activeBoardId: activeId);
+      
+      // Re-inicializar las líneas notificadas basadas en el estado cargado
+      _recalculateNotifiedLines();
     }
   }
 
-  void _saveToStorage() {
-    if (state != null) {
-      _box.put('current_board', state!.toJson());
+  void _recalculateNotifiedLines() {
+    _notifiedLines.clear();
+    final active = state.activeBoard;
+    if (active == null) return;
+
+    int n = active.dimension;
+    List<BingoCell> cells = active.cells;
+
+    // Filas
+    for (int i = 0; i < n; i++) {
+      bool rowComplete = true;
+      for (int j = 0; j < n; j++) {
+        if (!cells[i * n + j].isCompleted) { rowComplete = false; break; }
+      }
+      if (rowComplete) _notifiedLines.add("row_${active.id}_$i");
     }
+
+    // Columnas
+    for (int i = 0; i < n; i++) {
+      bool colComplete = true;
+      for (int j = 0; j < n; j++) {
+        if (!cells[i + j * n].isCompleted) { colComplete = false; break; }
+      }
+      if (colComplete) _notifiedLines.add("col_${active.id}_$i");
+    }
+
+    // Diagonales
+    bool diag1 = true;
+    for (int i = 0; i < n; i++) if (!cells[i * (n + 1)].isCompleted) { diag1 = false; break; }
+    if (diag1) _notifiedLines.add("diag1_${active.id}");
+
+    bool diag2 = true;
+    for (int i = 0; i < n; i++) if (!cells[(i + 1) * (n - 1)].isCompleted) { diag2 = false; break; }
+    if (diag2) _notifiedLines.add("diag2_${active.id}");
+    
+    if (cells.every((c) => c.isCompleted)) _notifiedLines.add("full_${active.id}");
+  }
+
+  void _saveToStorage() {
+    _box.put('all_boards', state.boards.map((e) => e.toJson()).toList());
+    _box.put('active_board_id', state.activeBoardId);
   }
 
   void createBoard(String title, BingoSize size) {
@@ -55,7 +108,7 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
       );
     });
 
-    state = BingoBoard(
+    final newBoard = BingoBoard(
       id: const Uuid().v4(),
       title: title,
       size: size,
@@ -63,26 +116,37 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
       style: BingoStyle(),
       createdAt: DateTime.now(),
     );
-    _notifiedLines.clear();
+
+    state = state.copyWith(
+      boards: [...state.boards, newBoard],
+      activeBoardId: newBoard.id,
+    );
     _saveToStorage();
+    _recalculateNotifiedLines();
+  }
+
+  void switchBoard(String id) {
+    state = state.copyWith(activeBoardId: id);
+    _saveToStorage();
+    _recalculateNotifiedLines();
   }
 
   void toggleCell(int index) {
-    if (state == null) return;
+    final active = state.activeBoard;
+    if (active == null) return;
 
-    final newCells = List<BingoCell>.from(state!.cells);
-    newCells[index] = newCells[index].copyWith(
-      isCompleted: !newCells[index].isCompleted,
-    );
+    final newCells = List<BingoCell>.from(active.cells);
+    newCells[index] = newCells[index].copyWith(isCompleted: !newCells[index].isCompleted);
 
-    state = state!.copyWith(cells: newCells);
-    _saveToStorage();
+    final updatedBoard = active.copyWith(cells: newCells);
+    _updateBoardInList(updatedBoard);
   }
 
   void updateCell(int index, String text, int color, int? iconCode, String? imagePath) {
-    if (state == null) return;
+    final active = state.activeBoard;
+    if (active == null) return;
 
-    final newCells = List<BingoCell>.from(state!.cells);
+    final newCells = List<BingoCell>.from(active.cells);
     newCells[index] = newCells[index].copyWith(
       text: text,
       colorValue: color,
@@ -90,37 +154,49 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
       imagePath: imagePath,
     );
 
-    state = state!.copyWith(cells: newCells);
-    _saveToStorage();
+    _updateBoardInList(active.copyWith(cells: newCells));
   }
 
   void updateStyle(BingoStyle newStyle) {
-    if (state == null) return;
-    state = state!.copyWith(style: newStyle);
+    final active = state.activeBoard;
+    if (active == null) return;
+    _updateBoardInList(active.copyWith(style: newStyle));
+  }
+
+  void _updateBoardInList(BingoBoard updatedBoard) {
+    state = state.copyWith(
+      boards: state.boards.map((b) => b.id == updatedBoard.id ? updatedBoard : b).toList(),
+    );
     _saveToStorage();
   }
 
   void archiveCurrentBoard() {
-    if (state == null) return;
-    _ref.read(historyProvider.notifier).archiveBoard(state!);
-    deleteBoard();
+    final active = state.activeBoard;
+    if (active == null) return;
+    _ref.read(historyProvider.notifier).archiveBoard(active);
+    deleteBoard(active.id);
   }
 
-  void deleteBoard() {
-    state = null;
-    _box.delete('current_board');
+  void deleteBoard(String id) {
+    final newBoards = state.boards.where((b) => b.id != id).toList();
+    state = state.copyWith(
+      boards: newBoards,
+      activeBoardId: newBoards.isEmpty ? null : newBoards.first.id,
+    );
+    _saveToStorage();
+    _recalculateNotifiedLines();
   }
 
   WinType checkWinStatus() {
-    if (state == null) return WinType.none;
-    int n = state!.dimension;
-    List<BingoCell> cells = state!.cells;
+    final active = state.activeBoard;
+    if (active == null) return WinType.none;
+    int n = active.dimension;
+    List<BingoCell> cells = active.cells;
     bool newWinFound = false;
 
     // 1. Check Full Bingo
-    bool fullBingo = cells.every((c) => c.isCompleted);
-    if (fullBingo) {
-      String winId = "full_bingo_${state!.id}";
+    if (cells.every((c) => c.isCompleted)) {
+      String winId = "full_${active.id}";
       if (!_notifiedLines.contains(winId)) {
         _notifiedLines.add(winId);
         return WinType.fullBingo;
@@ -132,13 +208,10 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
     for (int i = 0; i < n; i++) {
       bool rowComplete = true;
       for (int j = 0; j < n; j++) {
-        if (!cells[i * n + j].isCompleted) {
-          rowComplete = false;
-          break;
-        }
+        if (!cells[i * n + j].isCompleted) { rowComplete = false; break; }
       }
       if (rowComplete) {
-        String lineId = "row_$i";
+        String lineId = "row_${active.id}_$i";
         if (!_notifiedLines.contains(lineId)) {
           _notifiedLines.add(lineId);
           newWinFound = true;
@@ -150,13 +223,10 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
     for (int i = 0; i < n; i++) {
       bool colComplete = true;
       for (int j = 0; j < n; j++) {
-        if (!cells[i + j * n].isCompleted) {
-          colComplete = false;
-          break;
-        }
+        if (!cells[i + j * n].isCompleted) { colComplete = false; break; }
       }
       if (colComplete) {
-        String lineId = "col_$i";
+        String lineId = "col_${active.id}_$i";
         if (!_notifiedLines.contains(lineId)) {
           _notifiedLines.add(lineId);
           newWinFound = true;
@@ -165,39 +235,29 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
     }
 
     // 4. Check Diagonals
-    bool diag1Complete = true;
-    for (int i = 0; i < n; i++) {
-      if (!cells[i * (n + 1)].isCompleted) {
-        diag1Complete = false;
-        break;
-      }
-    }
-    if (diag1Complete) {
-      String lineId = "diag_1";
+    bool diag1 = true;
+    for (int i = 0; i < n; i++) if (!cells[i * (n + 1)].isCompleted) { diag1 = false; break; }
+    if (diag1) {
+      String lineId = "diag1_${active.id}";
       if (!_notifiedLines.contains(lineId)) {
         _notifiedLines.add(lineId);
         newWinFound = true;
       }
     }
 
-    bool diag2Complete = true;
-    for (int i = 0; i < n; i++) {
-      if (!cells[(i + 1) * (n - 1)].isCompleted) {
-        diag2Complete = false;
-        break;
-      }
-    }
-    if (diag2Complete) {
-      String lineId = "diag_2";
+    bool diag2 = true;
+    for (int i = 0; i < n; i++) if (!cells[(i + 1) * (n - 1)].isCompleted) { diag2 = false; break; }
+    if (diag2) {
+      String lineId = "diag2_${active.id}";
       if (!_notifiedLines.contains(lineId)) {
         _notifiedLines.add(lineId);
         newWinFound = true;
       }
     }
 
-    return newWinFound ? WinType.line : WinType.none;
+    return newWinFound ? WinType.line : WinType.none; 
   }
-  
-  int get completedCount => state?.cells.where((c) => c.isCompleted).length ?? 0;
-  double get progress => state == null || state!.cells.isEmpty ? 0 : completedCount / state!.cells.length;
+
+  int get completedCount => state.activeBoard?.cells.where((c) => c.isCompleted).length ?? 0;
+  double get progress => state.activeBoard == null ? 0 : completedCount / state.activeBoard!.cells.length;
 }

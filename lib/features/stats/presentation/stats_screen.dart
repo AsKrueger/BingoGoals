@@ -8,10 +8,11 @@ class StatsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final board = ref.watch(bingoProvider);
+    final bingoState = ref.watch(bingoProvider);
+    final board = bingoState.activeBoard;
     final notifier = ref.read(bingoProvider.notifier);
 
-    if (board == null) return const Scaffold(body: Center(child: Text('No hay datos')));
+    if (board == null) return const Scaffold(body: Center(child: Text('No hay un cartón activo')));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Estadísticas y Progreso')),
