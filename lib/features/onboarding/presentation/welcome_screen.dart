@@ -7,7 +7,6 @@ class WelcomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Escuchamos el estado inicial una sola vez para decidir navegación
     final hasBoard = ref.watch(bingoProvider) != null;
 
     return Scaffold(
@@ -19,7 +18,7 @@ class WelcomeScreen extends ConsumerWidget {
             end: Alignment.bottomCenter,
             colors: [
               Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.secondary,
+              Theme.of(context).colorScheme.primary.withOpacity(0.8),
             ],
           ),
         ),
@@ -27,12 +26,34 @@ class WelcomeScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.grid_view_rounded,
-                size: 100,
-                color: Colors.white,
+              // Mostramos tu nuevo logo aquí
+              Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    )
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Image.asset(
+                    'lib/features/assets/images/logo/logo.png.png',
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.grid_view_rounded,
+                      size: 80,
+                      color: Color(0xFF6200EE),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               const Text(
                 'BingoGoals',
                 style: TextStyle(

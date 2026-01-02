@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'bingo_provider.dart';
 
 class CelebrationOverlay extends StatefulWidget {
-  const CelebrationOverlay({super.key});
+  final WinType winType;
+
+  const CelebrationOverlay({super.key, required this.winType});
 
   @override
   State<CelebrationOverlay> createState() => _CelebrationOverlayState();
@@ -18,7 +21,7 @@ class _CelebrationOverlayState extends State<CelebrationOverlay> with SingleTick
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4),
     )..addListener(() {
         setState(() {
           for (var piece in _pieces) {
@@ -32,13 +35,14 @@ class _CelebrationOverlayState extends State<CelebrationOverlay> with SingleTick
   }
 
   void _generatePieces() {
-    for (int i = 0; i < 100; i++) {
+    int count = widget.winType == WinType.fullBingo ? 200 : 80;
+    for (int i = 0; i < count; i++) {
       _pieces.add(ConfettiPiece(
-        x: _random.nextDouble() * 400,
-        y: -_random.nextDouble() * 800,
+        x: _random.nextDouble() * 500,
+        y: -_random.nextDouble() * 1000,
         color: Colors.primaries[_random.nextInt(Colors.primaries.length)],
         size: _random.nextDouble() * 10 + 5,
-        velocity: _random.nextDouble() * 5 + 2,
+        velocity: _random.nextDouble() * 6 + 2,
       ));
     }
   }
@@ -51,8 +55,10 @@ class _CelebrationOverlayState extends State<CelebrationOverlay> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final isFullBingo = widget.winType == WinType.fullBingo;
+
     return Material(
-      color: Colors.transparent,
+      color: Colors.black.withOpacity(0.6),
       child: Stack(
         children: [
           ..._pieces.map((piece) => Positioned(
@@ -71,26 +77,27 @@ class _CelebrationOverlayState extends State<CelebrationOverlay> with SingleTick
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  '¡BINGO!',
-                  style: TextStyle(
-                    fontSize: 64,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    shadows: [Shadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, 4))],
-                  ),
+                Icon(
+                  isFullBingo ? Icons.workspace_premium : Icons.stars,
+                  size: 100,
+                  color: Colors.amber,
                 ),
                 const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
+                Text(
+                  isFullBingo ? '¡SUPER BINGO!' : '¡LÍNEA!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: isFullBingo ? 54 : 42,
+                    fontWeight: FontWeight.w900,
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
+                    letterSpacing: 4,
+                    shadows: const [Shadow(color: Colors.black54, blurRadius: 20, offset: Offset(0, 5))],
                   ),
-                  child: const Text(
-                    '¡Objetivo Logrado!',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange),
-                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isFullBingo ? '¡HAS COMPLETADO TODO EL CARTÓN!' : '¡Sigue así, vas por buen camino!',
+                  style: const TextStyle(fontSize: 18, color: Colors.white70, fontWeight: FontWeight.bold),
                 ),
               ],
             ),

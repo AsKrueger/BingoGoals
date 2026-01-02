@@ -16,7 +16,7 @@ dependencies:
   google_fonts: ^6.1.0
   cupertino_icons: ^1.0.6
   share_plus: ^7.2.2
-  audioplayers: ^5.2.1
+  image_picker: ^1.0.7
 
 dev_dependencies:
   flutter_test:
@@ -24,8 +24,17 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   hive_generator: ^2.0.1
   build_runner: ^2.4.7
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/sounds/
+    - lib/features/assets/images/logo/
+    - lib/features/assets/images/patterns/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "lib/features/assets/images/logo/logo.png.png"
+  adaptive_icon_background: "#6200EE"
+  adaptive_icon_foreground: "lib/features/assets/images/logo/logo.png.png"

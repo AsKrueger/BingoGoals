@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'history_provider.dart';
+import 'history_detail_screen.dart';
 
 class HistoryScreen extends ConsumerWidget {
   const HistoryScreen({super.key});
@@ -34,8 +35,9 @@ class HistoryScreen extends ConsumerWidget {
                 final percentage = (completedCount / board.cells.length * 100).toStringAsFixed(0);
 
                 return Card(
-                  margin: const EdgeInsets.bottom(16),
+                  margin: const EdgeInsets.only(bottom: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: 2,
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(16),
                     title: Text(
@@ -50,17 +52,40 @@ class HistoryScreen extends ConsumerWidget {
                         Text('Fecha: ${board.createdAt.day}/${board.createdAt.month}/${board.createdAt.year}'),
                       ],
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => ref.read(historyProvider.notifier).deleteFromHistory(board.id),
-                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onLongPress: () => _confirmDelete(context, ref, board.id),
                     onTap: () {
-                      // Aquí podrías mostrar una vista previa del bingo antiguo
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => HistoryDetailScreen(board: board),
+                        ),
+                      );
                     },
                   ),
                 );
               },
             ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, String id) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Eliminar del historial?'),
+        content: const Text('Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
+          TextButton(
+            onPressed: () {
+              ref.read(historyProvider.notifier).deleteFromHistory(id);
+              Navigator.pop(context);
+            },
+            child: const Text('ELIMINAR', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }

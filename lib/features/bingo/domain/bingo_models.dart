@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 
 enum BingoSize { threeByThree, fiveByFive }
-enum CheckFrequency { weekly, monthly, free }
+
+enum BingoThemeType {
+  classic,
+  christmas,
+  sakura,
+  spring,
+  newYear,
+  birthday,
+}
 
 class BingoCell {
   final String id;
   String text;
   bool isCompleted;
   int? iconCode;
+  String? imagePath;
   int? colorValue;
   final bool isCentralStar;
 
@@ -16,6 +25,7 @@ class BingoCell {
     this.text = '',
     this.isCompleted = false,
     this.iconCode,
+    this.imagePath,
     this.colorValue,
     this.isCentralStar = false,
   });
@@ -25,6 +35,7 @@ class BingoCell {
     'text': text,
     'isCompleted': isCompleted,
     'iconCode': iconCode,
+    'imagePath': imagePath,
     'colorValue': colorValue,
     'isCentralStar': isCentralStar,
   };
@@ -34,6 +45,7 @@ class BingoCell {
     text: json['text'],
     isCompleted: json['isCompleted'],
     iconCode: json['iconCode'],
+    imagePath: json['imagePath'],
     colorValue: json['colorValue'],
     isCentralStar: json['isCentralStar'],
   );
@@ -42,6 +54,7 @@ class BingoCell {
     String? text,
     bool? isCompleted,
     int? iconCode,
+    String? imagePath,
     int? colorValue,
   }) {
     return BingoCell(
@@ -49,6 +62,7 @@ class BingoCell {
       text: text ?? this.text,
       isCompleted: isCompleted ?? this.isCompleted,
       iconCode: iconCode ?? this.iconCode,
+      imagePath: imagePath ?? this.imagePath,
       colorValue: colorValue ?? this.colorValue,
       isCentralStar: isCentralStar,
     );
@@ -56,30 +70,38 @@ class BingoCell {
 }
 
 class BingoStyle {
+  final BingoThemeType themeType;
   final int primaryColor;
-  final int accentColor;
   final String fontFamily;
-  final bool showGridLines;
 
   BingoStyle({
+    this.themeType = BingoThemeType.classic,
     this.primaryColor = 0xFF6200EE,
-    this.accentColor = 0xFF03DAC6,
-    this.fontFamily = 'Roboto',
-    this.showGridLines = true,
+    this.fontFamily = 'Poppins',
   });
 
+  BingoStyle copyWith({
+    BingoThemeType? themeType,
+    int? primaryColor,
+    String? fontFamily,
+  }) {
+    return BingoStyle(
+      themeType: themeType ?? this.themeType,
+      primaryColor: primaryColor ?? this.primaryColor,
+      fontFamily: fontFamily ?? this.fontFamily,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
+    'themeType': themeType.index,
     'primaryColor': primaryColor,
-    'accentColor': accentColor,
     'fontFamily': fontFamily,
-    'showGridLines': showGridLines,
   };
 
   factory BingoStyle.fromJson(Map<dynamic, dynamic> json) => BingoStyle(
-    primaryColor: json['primaryColor'],
-    accentColor: json['accentColor'],
-    fontFamily: json['fontFamily'],
-    showGridLines: json['showGridLines'],
+    themeType: BingoThemeType.values[json['themeType'] ?? 0],
+    primaryColor: json['primaryColor'] ?? 0xFF6200EE,
+    fontFamily: json['fontFamily'] ?? 'Poppins',
   );
 }
 
@@ -89,8 +111,6 @@ class BingoBoard {
   final BingoSize size;
   final List<BingoCell> cells;
   final BingoStyle style;
-  final CheckFrequency frequency;
-  final bool fastCheck;
   final DateTime createdAt;
 
   BingoBoard({
@@ -99,8 +119,6 @@ class BingoBoard {
     required this.size,
     required this.cells,
     required this.style,
-    this.frequency = CheckFrequency.free,
-    this.fastCheck = true,
     required this.createdAt,
   });
 
@@ -112,8 +130,6 @@ class BingoBoard {
     'size': size.index,
     'cells': cells.map((e) => e.toJson()).toList(),
     'style': style.toJson(),
-    'frequency': frequency.index,
-    'fastCheck': fastCheck,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -123,8 +139,6 @@ class BingoBoard {
     size: BingoSize.values[json['size']],
     cells: (json['cells'] as List).map((e) => BingoCell.fromJson(e)).toList(),
     style: BingoStyle.fromJson(json['style']),
-    frequency: CheckFrequency.values[json['frequency']],
-    fastCheck: json['fastCheck'],
     createdAt: DateTime.parse(json['createdAt']),
   );
 
@@ -139,8 +153,6 @@ class BingoBoard {
       size: size,
       cells: cells ?? this.cells,
       style: style ?? this.style,
-      frequency: frequency,
-      fastCheck: fastCheck,
       createdAt: createdAt,
     );
   }

@@ -1,9 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
-import 'package:audioplayers/audioplayers.dart';
 import '../domain/bingo_models.dart';
 import '../../history/presentation/history_provider.dart';
+
+enum WinType { none, line, fullBingo }
+
+class WinState {
+  final WinType type;
+  final Set<int> completedLines; // Índices de líneas ya premiadas para no repetir aviso
+
+  WinState({this.type = WinType.none, this.completedLines = const {}});
+}
 
 final bingoProvider = StateNotifierProvider<BingoNotifier, BingoBoard?>((ref) {
   return BingoNotifier(ref);
@@ -11,8 +19,8 @@ final bingoProvider = StateNotifierProvider<BingoNotifier, BingoBoard?>((ref) {
 
 class BingoNotifier extends StateNotifier<BingoBoard?> {
   final Ref _ref;
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  
+  Set<String> _notifiedLines = {}; // IDs de líneas (ej: "row_0") ya notificadas en esta sesión
+
   BingoNotifier(this._ref) : super(null) {
     _loadFromStorage();
   }
@@ -29,14 +37,6 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
   void _saveToStorage() {
     if (state != null) {
       _box.put('current_board', state!.toJson());
-    }
-  }
-
-  Future<void> _playSound(String fileName) async {
-    try {
-      await _audioPlayer.play(AssetSource('sounds/$fileName'));
-    } catch (e) {
-      // Si el archivo no existe aún, fallará silenciosamente en el simulador
     }
   }
 
@@ -63,29 +63,23 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
       style: BingoStyle(),
       createdAt: DateTime.now(),
     );
+    _notifiedLines.clear();
     _saveToStorage();
-    _playSound('start.mp3');
   }
 
   void toggleCell(int index) {
     if (state == null) return;
 
     final newCells = List<BingoCell>.from(state!.cells);
-    final wasCompleted = newCells[index].isCompleted;
-    
     newCells[index] = newCells[index].copyWith(
-      isCompleted: !wasCompleted,
+      isCompleted: !newCells[index].isCompleted,
     );
 
     state = state!.copyWith(cells: newCells);
     _saveToStorage();
-    
-    if (!wasCompleted) {
-      _playSound('check.mp3');
-    }
   }
 
-  void updateCell(int index, String text, int color, int? iconCode) {
+  void updateCell(int index, String text, int color, int? iconCode, String? imagePath) {
     if (state == null) return;
 
     final newCells = List<BingoCell>.from(state!.cells);
@@ -93,6 +87,7 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
       text: text,
       colorValue: color,
       iconCode: iconCode,
+      imagePath: imagePath,
     );
 
     state = state!.copyWith(cells: newCells);
@@ -109,7 +104,6 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
     if (state == null) return;
     _ref.read(historyProvider.notifier).archiveBoard(state!);
     deleteBoard();
-    _playSound('archive.mp3');
   }
 
   void deleteBoard() {
@@ -117,12 +111,24 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
     _box.delete('current_board');
   }
 
-  bool checkWin() {
-    if (state == null) return false;
+  WinType checkWinStatus() {
+    if (state == null) return WinType.none;
     int n = state!.dimension;
     List<BingoCell> cells = state!.cells;
+    bool newWinFound = false;
 
-    // Check rows
+    // 1. Check Full Bingo
+    bool fullBingo = cells.every((c) => c.isCompleted);
+    if (fullBingo) {
+      String winId = "full_bingo_${state!.id}";
+      if (!_notifiedLines.contains(winId)) {
+        _notifiedLines.add(winId);
+        return WinType.fullBingo;
+      }
+      return WinType.none;
+    }
+
+    // 2. Check Rows
     for (int i = 0; i < n; i++) {
       bool rowComplete = true;
       for (int j = 0; j < n; j++) {
@@ -132,12 +138,15 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
         }
       }
       if (rowComplete) {
-        _playSound('bingo.mp3');
-        return true;
+        String lineId = "row_$i";
+        if (!_notifiedLines.contains(lineId)) {
+          _notifiedLines.add(lineId);
+          newWinFound = true;
+        }
       }
     }
 
-    // Check columns
+    // 3. Check Columns
     for (int i = 0; i < n; i++) {
       bool colComplete = true;
       for (int j = 0; j < n; j++) {
@@ -147,28 +156,48 @@ class BingoNotifier extends StateNotifier<BingoBoard?> {
         }
       }
       if (colComplete) {
-        _playSound('bingo.mp3');
-        return true;
+        String lineId = "col_$i";
+        if (!_notifiedLines.contains(lineId)) {
+          _notifiedLines.add(lineId);
+          newWinFound = true;
+        }
       }
     }
 
-    // Check diagonals
+    // 4. Check Diagonals
     bool diag1Complete = true;
+    for (int i = 0; i < n; i++) {
+      if (!cells[i * (n + 1)].isCompleted) {
+        diag1Complete = false;
+        break;
+      }
+    }
+    if (diag1Complete) {
+      String lineId = "diag_1";
+      if (!_notifiedLines.contains(lineId)) {
+        _notifiedLines.add(lineId);
+        newWinFound = true;
+      }
+    }
+
     bool diag2Complete = true;
     for (int i = 0; i < n; i++) {
-      if (!cells[i * (n + 1)].isCompleted) diag1Complete = false;
-      if (!cells[(i + 1) * (n - 1)].isCompleted) diag2Complete = false;
+      if (!cells[(i + 1) * (n - 1)].isCompleted) {
+        diag2Complete = false;
+        break;
+      }
+    }
+    if (diag2Complete) {
+      String lineId = "diag_2";
+      if (!_notifiedLines.contains(lineId)) {
+        _notifiedLines.add(lineId);
+        newWinFound = true;
+      }
     }
 
-    if (diag1Complete || diag2Complete) {
-      _playSound('bingo.mp3');
-      return true;
-    }
-
-    return false;
+    return newWinFound ? WinType.line : WinType.none;
   }
   
   int get completedCount => state?.cells.where((c) => c.isCompleted).length ?? 0;
-  
   double get progress => state == null || state!.cells.isEmpty ? 0 : completedCount / state!.cells.length;
 }
