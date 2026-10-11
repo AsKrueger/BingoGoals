@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from '../App';
 import type { BingoSize } from '../domain';
+import { createMemoryStorage } from '../storage/memoryStorage';
+import { EMPTY_DATA, type AppData } from '../storage/storage';
 
 const SIZE_NAMES: Record<BingoSize, RegExp> = {
   '3x3': /3 × 3/,
@@ -15,6 +17,16 @@ export function heading(name: string) {
   return screen.getByRole('heading', { level: 1, name });
 }
 
+/**
+ * Muestra la web ya cargada, sin pasar por la carga inicial. Devuelve el
+ * almacenamiento en memoria que usa, para inspeccionar lo guardado.
+ */
+export function renderApp(initialData: AppData = EMPTY_DATA) {
+  const storage = createMemoryStorage();
+  render(<App initialData={initialData} storage={storage} />);
+  return storage;
+}
+
 /** Rellena y envía el formulario de la pantalla de creación. */
 export function submitCreateForm(title: string, size: BingoSize) {
   fireEvent.change(screen.getByLabelText('Título del tablero'), {
@@ -26,9 +38,10 @@ export function submitCreateForm(title: string, size: BingoSize) {
 
 /** Abre la web y crea el primer tablero desde la bienvenida. */
 export function startApp(title: string, size: BingoSize) {
-  render(<App />);
+  const storage = renderApp();
   fireEvent.click(button('Empezar ahora'));
   submitCreateForm(title, size);
+  return storage;
 }
 
 /** Desde la pantalla de tablero, crea otro tablero a través de la colección. */

@@ -1,12 +1,5 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { App } from '../App';
 import { formatDate } from '../format';
 import {
   addBoard,
@@ -15,6 +8,7 @@ import {
   confirm,
   heading,
   mark,
+  renderApp,
   startApp,
 } from '../test/helpers';
 
@@ -77,7 +71,7 @@ describe('archivar', () => {
   });
 
   test('sin tableros archivados la bienvenida no ofrece el historial', () => {
-    render(<App />);
+    renderApp();
 
     expect(screen.queryByRole('button', { name: 'Ver historial' })).toBeNull();
   });

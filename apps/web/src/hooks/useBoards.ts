@@ -1,12 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   activateBoard,
   activeBoard,
   addBoard,
   archiveBoard,
   createBoard,
-  EMPTY_COLLECTION,
-  EMPTY_HISTORY,
   newWin,
   removeBoard,
   removeFromHistory,
@@ -22,16 +20,22 @@ import {
   type BingoTheme,
   type BingoWin,
 } from '../domain';
+import type { AppData } from '../storage/storage';
 
 /**
- * Guarda en memoria los tableros, cuál está activo, el historial de
- * archivados y la celebración pendiente.
+ * Lleva los tableros, cuál está activo, el historial de archivados y la
+ * celebración pendiente. Parte de los datos cargados del dispositivo y expone
+ * en `data` lo que hay que volver a guardar.
  */
-export function useBoards() {
-  const [collection, setCollection] = useState(EMPTY_COLLECTION);
-  const [history, setHistory] = useState(EMPTY_HISTORY);
+export function useBoards(initialData: AppData) {
+  const [collection, setCollection] = useState(initialData.collection);
+  const [history, setHistory] = useState(initialData.history);
   const [win, setWin] = useState<BingoWin>('none');
   const board = activeBoard(collection);
+  const data = useMemo<AppData>(
+    () => ({ collection, history }),
+    [collection, history],
+  );
 
   function changeActive(change: (board: BingoBoard) => BingoBoard) {
     if (board) {
@@ -44,6 +48,7 @@ export function useBoards() {
     board,
     history,
     win,
+    data,
 
     create(title: string, size: BingoSize) {
       setCollection(addBoard(collection, createBoard(title, size)));

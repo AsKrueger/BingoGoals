@@ -117,6 +117,13 @@
   white-space: nowrap;
 }
 
+.error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

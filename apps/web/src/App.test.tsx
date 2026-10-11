@@ -1,17 +1,11 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
-import { App } from './App';
 import { BINGO_THEMES } from './domain';
 import {
   addBoard,
   button,
   heading,
+  renderApp,
   startApp,
   submitCreateForm,
 } from './test/helpers';
@@ -38,7 +32,7 @@ function chooseTheme(label: string) {
 
 describe('bienvenida', () => {
   test('sin tableros, la web muestra la bienvenida y ningún tablero', () => {
-    render(<App />);
+    renderApp();
 
     expect(heading('BingoGoals')).toBeTruthy();
     expect(button('Empezar ahora')).toBeTruthy();
@@ -48,7 +42,7 @@ describe('bienvenida', () => {
   });
 
   test('cancelar la creación sin tableros vuelve a la bienvenida', () => {
-    render(<App />);
+    renderApp();
     fireEvent.click(button('Empezar ahora'));
 
     fireEvent.click(button('Volver'));
@@ -77,7 +71,7 @@ describe('creación', () => {
   });
 
   test.each(['', '   '])('no crea un tablero con el título "%s"', (title) => {
-    render(<App />);
+    renderApp();
     fireEvent.click(button('Empezar ahora'));
 
     submitCreateForm(title, '3x3');
@@ -89,7 +83,7 @@ describe('creación', () => {
   });
 
   test('el aviso desaparece al escribir un título', () => {
-    render(<App />);
+    renderApp();
     fireEvent.click(button('Empezar ahora'));
     fireEvent.click(button('Crear tablero'));
 
@@ -355,7 +349,7 @@ describe('foco', () => {
   });
 
   test('la pantalla de creación enfoca el campo del título', () => {
-    render(<App />);
+    renderApp();
 
     fireEvent.click(button('Empezar ahora'));
 

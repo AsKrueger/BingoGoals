@@ -1,7 +1,13 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { BingoSize } from '../domain';
+import { resizePhoto } from '../photos';
 import { startApp } from '../test/helpers';
+
+// jsdom no decodifica imágenes: la reducción se prueba en photos.test.ts.
+vi.mock('../photos', () => ({
+  resizePhoto: vi.fn(async () => 'data:image/jpeg;base64,REDUCIDA'),
+}));
 
 afterEach(cleanup);
 
@@ -129,8 +135,9 @@ describe('editar', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }));
 
     expect(cell('Editar: Objetivo 1').style.backgroundImage).toContain(
-      'data:image/png;base64,',
+      'data:image/jpeg;base64,REDUCIDA',
     );
+    expect(resizePhoto).toHaveBeenCalledWith(expect.any(File));
 
     fireEvent.click(cell('Editar: Objetivo 1'));
     dialog = within(screen.getByRole('dialog'));
@@ -138,6 +145,21 @@ describe('editar', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }));
 
     expect(cell('Editar: Objetivo 1').style.backgroundImage).toBe('');
+  });
+
+  test('avisa si el archivo elegido no se puede leer como foto', async () => {
+    vi.mocked(resizePhoto).mockRejectedValueOnce(new Error('no es una imagen'));
+    renderBoard('3x3');
+    const dialog = openEditor('Objetivo 1');
+
+    fireEvent.change(dialog.getByLabelText('Elegir foto'), {
+      target: { files: [new File(['texto'], 'notas.txt')] },
+    });
+
+    expect((await dialog.findByRole('alert')).textContent).toBe(
+      'No se ha podido leer la foto. Prueba con otra imagen.',
+    );
+    expect(dialog.queryByAltText('Foto elegida')).toBeNull();
   });
 
   test('permite quitar el icono y el color', () => {
