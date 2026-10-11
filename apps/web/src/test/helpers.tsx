@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from '../App';
-import type { BingoSize } from '../domain';
+import type { BingoSize } from '@bingogoals/domain';
 import { createMemoryStorage } from '../storage/memoryStorage';
 import { EMPTY_DATA, type AppData } from '../storage/storage';
 

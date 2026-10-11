@@ -8,6 +8,27 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+
+    # PostgreSQL para los tests de integración de la API. Es un contenedor
+    # que solo vive durante el trabajo: sus credenciales no son secretos.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: bingogoals
+          POSTGRES_PASSWORD: bingogoals
+          POSTGRES_DB: bingogoals
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username bingogoals"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      DATABASE_URL: postgresql://bingogoals:bingogoals@localhost:5432/bingogoals?schema=public
+
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -15,8 +36,28 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Generar el cliente de Prisma
+        run: npm run db:generate --workspace @bingogoals/api
+
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+
+      - name: Aplicar las migraciones
+        run: npm run db:migrate
+      - name: Tests de integración de la API contra PostgreSQL
+        run: npm run test:integration
+
+      - name: Instalar el navegador de la prueba de humo
+        run: npx playwright install --with-deps chromium
+      - name: Prueba de humo de la web en un navegador real
+        run: npm run test:e2e --workspace @bingogoals/web
+      - name: Guardar las trazas si la prueba de humo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-de-humo
+          path: apps/web/test-results/
+          if-no-files-found: ignore

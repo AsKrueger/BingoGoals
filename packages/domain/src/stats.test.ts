@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
-import { createBoard, toggleCell } from './board';
-import { boardStats } from './stats';
-import type { BingoBoard, BingoSize } from './types';
+import { createBoard, toggleCell } from './board.js';
+import { boardStats } from './stats.js';
+import type { BingoBoard, BingoSize } from './types.js';
 
 function boardWith(size: BingoSize, completed: readonly number[]): BingoBoard {
   const board = createBoard('Metas', size);

@@ -1,0 +1,48 @@
+// Esquema de la base de datos de BingoGoals.
+// La conexión se configura en prisma.config.ts, a partir de DATABASE_URL.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  boards    Board[]
+
+  @@map("users")
+}
+
+/// Un tablero de bingo, activo o archivado.
+///
+/// El identificador y las fechas los genera el cliente con el dominio
+/// compartido (`@bingogoals/domain`): la sincronización compara `updatedAt`
+/// para saber qué versión de un tablero es la más reciente.
+model Board {
+  id     String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title String
+  /// «3x3» o «5x5».
+  size  String
+  /// Estilo del tablero: `{ "theme": "classic" }`.
+  style Json
+  /// Lista de casillas. Su forma la valida el dominio compartido.
+  cells Json
+
+  createdAt  DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @map("updated_at") @db.Timestamptz(3)
+  /// Un tablero archivado es el mismo registro, con su fecha de archivo.
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("boards")
+}

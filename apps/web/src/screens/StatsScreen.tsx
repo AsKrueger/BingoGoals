@@ -5,7 +5,7 @@ import {
   boardStats,
   type BingoBoard,
   type LineCount,
-} from '../domain';
+} from '@bingogoals/domain';
 import { formatDate } from '../format';
 import styles from './StatsScreen.module.css';
 

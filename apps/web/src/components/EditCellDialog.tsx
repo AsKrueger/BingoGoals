@@ -1,5 +1,5 @@
 import { useId, useState, type ChangeEvent, type FormEvent } from 'react';
-import type { BingoCell, BingoCellChanges } from '../domain';
+import type { BingoCell, BingoCellChanges } from '@bingogoals/domain';
 import { resizePhoto } from '../photos';
 import { CELL_COLORS, CELL_ICONS } from './cellOptions';
 import styles from './EditCellDialog.module.css';

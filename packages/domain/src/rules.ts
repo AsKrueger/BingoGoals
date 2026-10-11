@@ -1,5 +1,10 @@
-import { boardDimension } from './board';
-import type { BingoBoard, BingoLine, BingoProgress, BingoWin } from './types';
+import { boardDimension } from './board.js';
+import type {
+  BingoBoard,
+  BingoLine,
+  BingoProgress,
+  BingoWin,
+} from './types.js';
 
 function boardLines(board: BingoBoard): BingoLine[] {
   const n = boardDimension(board.size);

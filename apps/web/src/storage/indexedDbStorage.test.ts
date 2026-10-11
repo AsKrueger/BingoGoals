@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, test } from 'vitest';
-import { activeBoard, toggleCell, replaceBoard } from '../domain';
+import { activeBoard, toggleCell, replaceBoard } from '@bingogoals/domain';
 import { createIndexedDbStorage } from './indexedDbStorage';
 import { STORAGE_VERSION } from './schema';
 import { EMPTY_DATA, type AppData, type BoardStorage } from './storage';
@@ -163,7 +163,7 @@ describe('almacenamiento en IndexedDB', () => {
   });
 
   test('con una versión desconocida, cargar lo indica', async () => {
-    await rawRecord({ value: { ...sampleData(), version: 2 } });
+    await rawRecord({ value: { ...sampleData(), version: 3 } });
 
     expect(await createIndexedDbStorage().load()).toEqual({
       status: 'unreadable',
@@ -196,7 +196,7 @@ describe('almacenamiento en IndexedDB', () => {
   describe('registro ilegible', () => {
     test.each([
       ['corrupto', 'esto no son datos'],
-      ['de una versión más nueva', { version: 2, tableros: ['uno', 'dos'] }],
+      ['de una versión más nueva', { version: 3, tableros: ['uno', 'dos'] }],
     ])('guardar sobre un registro %s conserva una copia', async (_, value) => {
       await rawRecord({ value });
       const storage = createIndexedDbStorage();

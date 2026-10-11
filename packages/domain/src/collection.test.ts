@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
-import { createBoard, toggleCell } from './board';
+import { createBoard, toggleCell } from './board.js';
 import {
   activateBoard,
   activeBoard,
@@ -8,7 +8,7 @@ import {
   EMPTY_COLLECTION,
   removeBoard,
   replaceBoard,
-} from './collection';
+} from './collection.js';
 
 const first = createBoard('Primero', '3x3');
 const second = createBoard('Segundo', '5x5');

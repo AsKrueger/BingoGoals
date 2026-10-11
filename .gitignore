@@ -23,3 +23,10 @@ Thumbs.db
 
 # Restos locales del prototipo Flutter
 .dart_tool/
+
+# Cliente de Prisma: se genera con `prisma generate`
+apps/api/src/generated/
+
+# Playwright
+test-results/
+playwright-report/

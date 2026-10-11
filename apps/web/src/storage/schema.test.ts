@@ -20,7 +20,7 @@ describe('toStoredData', () => {
     const data = sampleData();
 
     expect(toStoredData(data)).toEqual({ version: STORAGE_VERSION, ...data });
-    expect(STORAGE_VERSION).toBe(1);
+    expect(STORAGE_VERSION).toBe(2);
   });
 });
 
@@ -46,7 +46,7 @@ describe('parseStoredData', () => {
     expect(parseStoredData(raw)).toBeNull();
   });
 
-  test.each([0, 2, 99, '1', null, undefined])(
+  test.each([0, 3, 99, '2', null, undefined])(
     'rechaza la versión desconocida %s',
     (version) => {
       expect(parseStoredData({ ...stored(), version })).toBeNull();
@@ -168,7 +168,7 @@ describe('readStoredData', () => {
     ['null', null],
     ['un texto', 'esto no son datos'],
     ['un objeto vacío', {}],
-    ['una versión más nueva', { ...toStoredData(sampleData()), version: 2 }],
+    ['una versión más nueva', { ...toStoredData(sampleData()), version: 3 }],
   ])('con %s, hay datos pero son ilegibles', (_, raw) => {
     expect(readStoredData(raw)).toEqual({ status: 'unreadable' });
   });

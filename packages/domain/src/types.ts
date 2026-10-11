@@ -23,8 +23,6 @@ export interface BingoCell {
 
 export interface BingoStyle {
   readonly theme: BingoTheme;
-  readonly primaryColor: string;
-  readonly fontFamily: string;
 }
 
 export interface BingoBoard {
@@ -35,6 +33,8 @@ export interface BingoBoard {
   readonly style: BingoStyle;
   /** Fecha de creación en formato ISO 8601. */
   readonly createdAt: string;
+  /** Fecha del último cambio en formato ISO 8601. */
+  readonly updatedAt: string;
 }
 
 export type BingoLineType = 'row' | 'column' | 'diagonal';

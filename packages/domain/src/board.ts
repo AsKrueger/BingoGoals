@@ -1,9 +1,7 @@
-import type { BingoBoard, BingoCell, BingoSize, BingoStyle } from './types';
+import type { BingoBoard, BingoCell, BingoSize, BingoStyle } from './types.js';
 
 export const DEFAULT_STYLE: BingoStyle = {
   theme: 'classic',
-  primaryColor: '#6200EE',
-  fontFamily: 'Poppins',
 };
 
 export type BingoCellChanges = Partial<
@@ -14,7 +12,11 @@ export function boardDimension(size: BingoSize): number {
   return size === '3x3' ? 3 : 5;
 }
 
-export function createBoard(title: string, size: BingoSize): BingoBoard {
+export function createBoard(
+  title: string,
+  size: BingoSize,
+  now: Date = new Date(),
+): BingoBoard {
   const total = boardDimension(size) ** 2;
   const center = Math.floor(total / 2);
 
@@ -31,18 +33,28 @@ export function createBoard(title: string, size: BingoSize): BingoBoard {
     };
   });
 
+  const createdAt = now.toISOString();
   return {
     id: crypto.randomUUID(),
     title,
     size,
     cells,
     style: DEFAULT_STYLE,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    updatedAt: createdAt,
   };
 }
 
-export function toggleCell(board: BingoBoard, index: number): BingoBoard {
-  return replaceCell(board, index, (cell) => ({
+// Todas las funciones que cambian un tablero devuelven uno nuevo con
+// `updatedAt` puesto a `now`. La sincronización lo usa para saber qué versión
+// de un tablero es la más reciente.
+
+export function toggleCell(
+  board: BingoBoard,
+  index: number,
+  now: Date = new Date(),
+): BingoBoard {
+  return replaceCell(board, index, now, (cell) => ({
     ...cell,
     isCompleted: !cell.isCompleted,
   }));
@@ -52,9 +64,10 @@ export function updateCell(
   board: BingoBoard,
   index: number,
   changes: BingoCellChanges,
+  now: Date = new Date(),
 ): BingoBoard {
   const { text, icon, imagePath, color } = changes;
-  return replaceCell(board, index, (cell) => ({
+  return replaceCell(board, index, now, (cell) => ({
     ...cell,
     ...(text !== undefined && { text }),
     ...(icon !== undefined && { icon }),
@@ -66,33 +79,49 @@ export function updateCell(
 export function updateStyle(
   board: BingoBoard,
   changes: Partial<BingoStyle>,
+  now: Date = new Date(),
 ): BingoBoard {
-  return { ...board, style: { ...board.style, ...changes } };
+  return touch({ ...board, style: { ...board.style, ...changes } }, now);
 }
 
-export function renameBoard(board: BingoBoard, title: string): BingoBoard {
-  return { ...board, title };
+export function renameBoard(
+  board: BingoBoard,
+  title: string,
+  now: Date = new Date(),
+): BingoBoard {
+  return touch({ ...board, title }, now);
 }
 
 /** Desmarca todas las casillas salvo la estrella central; conserva lo demás. */
-export function resetBoard(board: BingoBoard): BingoBoard {
-  return {
-    ...board,
-    cells: board.cells.map((cell) => ({
-      ...cell,
-      isCompleted: cell.isCentralStar,
-    })),
-  };
+export function resetBoard(
+  board: BingoBoard,
+  now: Date = new Date(),
+): BingoBoard {
+  return touch(
+    {
+      ...board,
+      cells: board.cells.map((cell) => ({
+        ...cell,
+        isCompleted: cell.isCentralStar,
+      })),
+    },
+    now,
+  );
+}
+
+function touch(board: BingoBoard, now: Date): BingoBoard {
+  return { ...board, updatedAt: now.toISOString() };
 }
 
 function replaceCell(
   board: BingoBoard,
   index: number,
+  now: Date,
   update: (cell: BingoCell) => BingoCell,
 ): BingoBoard {
   const cell = board.cells[index];
   if (cell === undefined) {
     throw new RangeError(`No existe la casilla ${index} en el tablero.`);
   }
-  return { ...board, cells: board.cells.with(index, update(cell)) };
+  return touch({ ...board, cells: board.cells.with(index, update(cell)) }, now);
 }

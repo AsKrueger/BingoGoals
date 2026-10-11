@@ -3,7 +3,7 @@ import {
   EMPTY_HISTORY,
   type BoardCollection,
   type BoardHistory,
-} from '../domain';
+} from '@bingogoals/domain';
 
 /** Todo lo que la web guarda en el dispositivo. */
 export interface AppData {

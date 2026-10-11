@@ -1,5 +1,5 @@
 import { useEffect, useId, type CSSProperties } from 'react';
-import type { BingoWin } from '../domain';
+import type { BingoWin } from '@bingogoals/domain';
 import styles from './Celebration.module.css';
 import { Modal } from './Modal';
 

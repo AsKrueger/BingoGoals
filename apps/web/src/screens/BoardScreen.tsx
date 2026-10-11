@@ -11,7 +11,7 @@ import {
   type BingoCellChanges,
   type BingoTheme,
   type BingoWin,
-} from '../domain';
+} from '@bingogoals/domain';
 import { THEMES } from '../themes';
 import styles from './BoardScreen.module.css';
 

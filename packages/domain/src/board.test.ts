@@ -9,9 +9,12 @@ import {
   toggleCell,
   updateCell,
   updateStyle,
-} from './board';
+} from './board.js';
 
 const SIZES = ['3x3', '5x5'] as const;
+
+const CREATED = new Date('2026-10-01T10:00:00.000Z');
+const LATER = new Date('2026-10-02T18:30:00.000Z');
 
 describe('boardDimension', () => {
   test('devuelve el lado del tablero', () => {
@@ -209,9 +212,13 @@ describe('renameBoard', () => {
     const board = createBoard('Metas', size);
     const snapshot = structuredClone(board);
 
-    const result = renameBoard(board, 'Metas de otoño');
+    const result = renameBoard(board, 'Metas de otoño', LATER);
 
-    expect(result).toEqual({ ...board, title: 'Metas de otoño' });
+    expect(result).toEqual({
+      ...board,
+      title: 'Metas de otoño',
+      updatedAt: LATER.toISOString(),
+    });
     expect(result.cells).toBe(board.cells);
     expect(board).toEqual(snapshot);
   });
@@ -272,5 +279,58 @@ describe('resetBoard', () => {
     resetBoard(board);
 
     expect(board).toEqual(snapshot);
+  });
+});
+
+describe('fecha de modificación', () => {
+  test.each(SIZES)(
+    'un tablero %s nuevo nace con las dos fechas iguales',
+    (size) => {
+      const board = createBoard('Metas', size, CREATED);
+
+      expect(board.createdAt).toBe('2026-10-01T10:00:00.000Z');
+      expect(board.updatedAt).toBe(board.createdAt);
+    },
+  );
+
+  test('por defecto se usa la fecha actual', () => {
+    const before = Date.now();
+
+    const board = createBoard('Metas', '3x3');
+    const changed = toggleCell(board, 0);
+
+    for (const date of [board.createdAt, board.updatedAt, changed.updatedAt]) {
+      expect(new Date(date).getTime()).toBeGreaterThanOrEqual(before);
+      expect(new Date(date).getTime()).toBeLessThanOrEqual(Date.now());
+    }
+  });
+
+  test.each([
+    ['toggleCell', (board) => toggleCell(board, 0, LATER)],
+    ['updateCell', (board) => updateCell(board, 0, { text: 'Leer' }, LATER)],
+    ['updateStyle', (board) => updateStyle(board, { theme: 'sakura' }, LATER)],
+    ['renameBoard', (board) => renameBoard(board, 'Otro', LATER)],
+    ['resetBoard', (board) => resetBoard(board, LATER)],
+  ] as [
+    string,
+    (board: ReturnType<typeof createBoard>) => ReturnType<typeof createBoard>,
+  ][])(
+    '%s actualiza la fecha de modificación y conserva la de creación',
+    (_, change) => {
+      for (const size of SIZES) {
+        const board = createBoard('Metas', size, CREATED);
+
+        const result = change(board);
+
+        expect(result.updatedAt).toBe('2026-10-02T18:30:00.000Z');
+        expect(result.createdAt).toBe('2026-10-01T10:00:00.000Z');
+        expect(board.updatedAt).toBe('2026-10-01T10:00:00.000Z');
+      }
+    },
+  );
+
+  test('el estilo de un tablero nuevo solo tiene el tema', () => {
+    expect(createBoard('Metas', '3x3').style).toEqual({ theme: 'classic' });
+    expect(DEFAULT_STYLE).toEqual({ theme: 'classic' });
   });
 });

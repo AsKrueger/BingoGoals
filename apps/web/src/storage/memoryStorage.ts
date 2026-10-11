@@ -1,4 +1,4 @@
-import { readStoredData, toStoredData } from './schema';
+import { isOlderVersion, readStoredData, toStoredData } from './schema';
 import type { AppData, BoardStorage, LoadResult } from './storage';
 
 export interface MemoryStorage extends BoardStorage {
@@ -28,7 +28,11 @@ export function createMemoryStorage(raw: unknown = undefined): MemoryStorage {
       if (this.failOnLoad) {
         throw new Error('No se puede leer el almacenamiento.');
       }
-      return readStoredData(this.raw);
+      const result = readStoredData(this.raw);
+      if (result.status === 'loaded' && isOlderVersion(this.raw)) {
+        await this.save(result.data).catch(() => {});
+      }
+      return result;
     },
     async save(data: AppData): Promise<void> {
       if (this.failOnSave) {

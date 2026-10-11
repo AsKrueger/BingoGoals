@@ -1,22 +1,22 @@
 import {
-  BINGO_SIZES,
-  BINGO_THEMES,
-  boardDimension,
+  isArrayOf,
+  isBingoBoard,
+  isDateString,
+  isRecord,
   type ArchivedBoard,
-  type BingoBoard,
-  type BingoCell,
-  type BingoSize,
-  type BingoStyle,
-  type BingoTheme,
   type BoardCollection,
-} from '../domain';
+} from '@bingogoals/domain';
+import { migrateStoredData } from './migrations';
 import type { AppData, LoadResult } from './storage';
 
 /**
- * Versión del formato de los datos guardados. Súbela cuando cambie el formato
- * y añade aquí la migración desde la versión anterior.
+ * Versión del formato de los datos guardados. Al cambiar el formato, súbela y
+ * añade en migrations.ts el paso desde la versión anterior.
+ *
+ * - 1: formato inicial.
+ * - 2: el estilo solo guarda el tema y cada tablero lleva `updatedAt`.
  */
-export const STORAGE_VERSION = 1;
+export const STORAGE_VERSION = 2;
 
 export interface StoredData extends AppData {
   readonly version: number;
@@ -27,8 +27,8 @@ export function toStoredData(data: AppData): StoredData {
 }
 
 /**
- * Valida lo leído del dispositivo. Devuelve null si está corrupto o es de una
- * versión desconocida.
+ * Valida un registro con el formato de la versión actual. Devuelve null si
+ * está corrupto o es de otra versión.
  */
 export function parseStoredData(raw: unknown): AppData | null {
   if (!isRecord(raw) || raw.version !== STORAGE_VERSION) {
@@ -41,92 +41,30 @@ export function parseStoredData(raw: unknown): AppData | null {
   return { collection, history };
 }
 
+/** true si el registro es de una versión anterior que hay que migrar. */
+export function isOlderVersion(raw: unknown): boolean {
+  return (
+    isRecord(raw) &&
+    typeof raw.version === 'number' &&
+    raw.version < STORAGE_VERSION
+  );
+}
+
 /**
- * Clasifica el registro leído del dispositivo. Que no haya registro (primera
- * visita) no es lo mismo que haya uno que no se sabe leer.
+ * Clasifica el registro leído del dispositivo, migrándolo antes si es de una
+ * versión anterior. Que no haya registro (primera visita) no es lo mismo que
+ * haya uno que no se sabe leer.
  */
 export function readStoredData(raw: unknown): LoadResult {
   if (raw === undefined) {
     return { status: 'empty' };
   }
-  const data = parseStoredData(raw);
+  const data = parseStoredData(migrateStoredData(raw));
   return data ? { status: 'loaded', data } : { status: 'unreadable' };
 }
 
-type UnknownRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isArrayOf<T>(
-  value: unknown,
-  isItem: (item: unknown) => item is T,
-): value is T[] {
-  return Array.isArray(value) && value.every(isItem);
-}
-
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === 'string';
-}
-
-/**
- * Las fotos se guardan como URL de datos de imagen. No se admite otra cosa:
- * este valor acaba en un `url()` de CSS, y una dirección externa o un texto
- * manipulado no deben llegar ahí.
- */
-const IMAGE_DATA_URL =
-  /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/;
-
-function isNullableImage(value: unknown): value is string | null {
-  return (
-    value === null || (typeof value === 'string' && IMAGE_DATA_URL.test(value))
-  );
-}
-
-function isDate(value: unknown): value is string {
-  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
-}
-
-function isCell(value: unknown): value is BingoCell {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.text === 'string' &&
-    typeof value.isCompleted === 'boolean' &&
-    typeof value.isCentralStar === 'boolean' &&
-    isNullableString(value.icon) &&
-    isNullableImage(value.imagePath) &&
-    isNullableString(value.color)
-  );
-}
-
-function isStyle(value: unknown): value is BingoStyle {
-  return (
-    isRecord(value) &&
-    BINGO_THEMES.includes(value.theme as BingoTheme) &&
-    typeof value.primaryColor === 'string' &&
-    typeof value.fontFamily === 'string'
-  );
-}
-
-function isBoard(value: unknown): value is BingoBoard {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== 'string' ||
-    typeof value.title !== 'string' ||
-    !BINGO_SIZES.includes(value.size as BingoSize) ||
-    !isStyle(value.style) ||
-    !isDate(value.createdAt) ||
-    !isArrayOf(value.cells, isCell)
-  ) {
-    return false;
-  }
-  return value.cells.length === boardDimension(value.size as BingoSize) ** 2;
-}
-
 function isCollection(value: unknown): value is BoardCollection {
-  if (!isRecord(value) || !isArrayOf(value.boards, isBoard)) {
+  if (!isRecord(value) || !isArrayOf(value.boards, isBingoBoard)) {
     return false;
   }
   const { boards, activeBoardId } = value;
@@ -137,5 +75,9 @@ function isCollection(value: unknown): value is BoardCollection {
 }
 
 function isArchivedBoard(value: unknown): value is ArchivedBoard {
-  return isRecord(value) && isBoard(value.board) && isDate(value.archivedAt);
+  return (
+    isRecord(value) &&
+    isBingoBoard(value.board) &&
+    isDateString(value.archivedAt)
+  );
 }

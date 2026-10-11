@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { BingoSize } from '../domain';
+import type { BingoSize } from '@bingogoals/domain';
 import { resizePhoto } from '../photos';
 import { startApp } from '../test/helpers';
 

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { BingoCell } from '../domain';
+import type { BingoCell } from '@bingogoals/domain';
 import styles from './BoardCell.module.css';
 
 export type BoardMode = 'play' | 'edit' | 'readonly';

@@ -37,7 +37,21 @@ npm run test
 npm run build
 ```
 
-`npm run format` corrige el formato automáticamente. La integración continua ejecuta las mismas comprobaciones en cada pull request.
+`npm run format` corrige el formato automáticamente.
+
+Si el cambio toca la API o la base de datos, ejecuta también los tests de integración, con PostgreSQL en marcha (`npm run db:up` y `npm run db:migrate`):
+
+```bash
+npm run test:integration
+```
+
+Si toca la web, ejecuta también la prueba de humo, que abre la versión compilada en un navegador real:
+
+```bash
+npm run test:e2e
+```
+
+La integración continua ejecuta todas estas comprobaciones en cada pull request.
 
 ## Dependencias
 

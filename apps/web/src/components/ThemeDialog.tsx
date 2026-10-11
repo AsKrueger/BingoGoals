@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { BINGO_THEMES, type BingoTheme } from '../domain';
+import { BINGO_THEMES, type BingoTheme } from '@bingogoals/domain';
 import { THEMES } from '../themes';
 import { Modal } from './Modal';
 import styles from './ThemeDialog.module.css';

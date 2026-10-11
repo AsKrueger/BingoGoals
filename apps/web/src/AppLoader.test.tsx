@@ -13,6 +13,7 @@ import {
   type MemoryStorage,
 } from './storage/memoryStorage';
 import { STORAGE_VERSION, toStoredData } from './storage/schema';
+import storedV1 from './storage/fixtures/stored-v1.json';
 import { sampleData } from './storage/testData';
 import {
   archiveActiveBoard,
@@ -165,6 +166,45 @@ describe('carga inicial', () => {
 
     // Unos datos de una versión más nueva no se pisan solo por abrir la web.
     expect(storage.raw).toBe(raw);
+  });
+});
+
+describe('datos de la versión 1', () => {
+  test('los tableros siguen ahí, sin aviso', async () => {
+    await open(createMemoryStorage(structuredClone(storedV1)));
+
+    expect(heading('Segundo')).toBeTruthy();
+    expect(screen.getByText('2 de 25 conseguidos')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    fireEvent.click(button('Mis tableros'));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    fireEvent.click(button('Abrir Primero'));
+    expect(heading('Primero').closest('[data-theme]')).toHaveProperty(
+      'dataset.theme',
+      'sakura',
+    );
+    expect(button('Correr 10 km').style.backgroundImage).toContain(
+      'data:image/jpeg;base64,AAAA',
+    );
+  });
+
+  test('el historial también se conserva', async () => {
+    await open(createMemoryStorage(structuredClone(storedV1)));
+
+    fireEvent.click(button('Historial'));
+
+    expect(button('Ver Archivado')).toBeTruthy();
+  });
+
+  test('al abrir la web quedan guardados en la versión actual, sin copias', async () => {
+    const storage = createMemoryStorage(structuredClone(storedV1));
+
+    await open(storage);
+
+    expect(storage.raw).toMatchObject({ version: STORAGE_VERSION });
+    expect(JSON.stringify(storage.raw)).not.toMatch(/primaryColor|fontFamily/);
+    expect(storage.unreadableCopies).toEqual([]);
   });
 });
 

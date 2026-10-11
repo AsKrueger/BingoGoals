@@ -1,4 +1,4 @@
-import { readStoredData, toStoredData } from './schema';
+import { isOlderVersion, readStoredData, toStoredData } from './schema';
 import type { AppData, BoardStorage, LoadResult } from './storage';
 
 const DATABASE = 'bingogoals';
@@ -47,9 +47,16 @@ async function transact<T>(
 export function createIndexedDbStorage(): BoardStorage {
   return {
     async load(): Promise<LoadResult> {
-      return readStoredData(
-        await transact('readonly', (store) => store.get(KEY)),
-      );
+      const raw = await transact('readonly', (store) => store.get(KEY));
+      const result = readStoredData(raw);
+
+      // Un registro de una versión anterior se deja ya guardado en la actual.
+      // Solo se sustituye por su equivalente validado; si guardar falla, los
+      // datos siguen cargados y se guardarán con el primer cambio.
+      if (result.status === 'loaded' && isOlderVersion(raw)) {
+        await this.save(result.data).catch(() => {});
+      }
+      return result;
     },
 
     async save(data: AppData): Promise<void> {

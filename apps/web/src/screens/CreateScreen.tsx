@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Screen } from '../components/Screen';
 import { isValidTitle, TitleField } from '../components/TitleField';
-import type { BingoSize } from '../domain';
+import type { BingoSize } from '@bingogoals/domain';
 import styles from './CreateScreen.module.css';
 
 interface CreateScreenProps {

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
-import { createBoard } from './board';
-import { archiveBoard, EMPTY_HISTORY, removeFromHistory } from './history';
+import { createBoard } from './board.js';
+import { archiveBoard, EMPTY_HISTORY, removeFromHistory } from './history.js';
 
 const first = createBoard('Primero', '3x3');
 const second = createBoard('Segundo', '5x5');

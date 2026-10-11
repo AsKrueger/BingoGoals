@@ -1,0 +1,22 @@
+# PostgreSQL para desarrollo local. Las credenciales son solo para esta
+# máquina: no se usan en ningún otro sitio.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bingogoals
+      POSTGRES_PASSWORD: bingogoals
+      POSTGRES_DB: bingogoals
+    ports:
+      # Solo accesible desde este equipo.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready --username bingogoals']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres-data:

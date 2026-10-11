@@ -7,7 +7,7 @@ import {
   toggleCell,
   updateCell,
   updateStyle,
-} from '../domain';
+} from '@bingogoals/domain';
 import type { AppData } from './storage';
 
 /**

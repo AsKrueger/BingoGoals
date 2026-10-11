@@ -3,7 +3,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Screen } from '../components/Screen';
 import { ThemeDialog } from '../components/ThemeDialog';
 import { isValidTitle, TitleField } from '../components/TitleField';
-import type { BingoBoard, BingoTheme } from '../domain';
+import type { BingoBoard, BingoTheme } from '@bingogoals/domain';
 import { THEMES } from '../themes';
 import styles from './SettingsScreen.module.css';
 

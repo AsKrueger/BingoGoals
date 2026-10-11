@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BoardCard } from '../components/BoardCard';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Screen } from '../components/Screen';
-import type { ArchivedBoard, BoardHistory } from '../domain';
+import type { ArchivedBoard, BoardHistory } from '@bingogoals/domain';
 import { formatDate } from '../format';
 import styles from './HistoryScreen.module.css';
 

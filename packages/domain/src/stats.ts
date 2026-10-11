@@ -1,6 +1,6 @@
-import { boardDimension } from './board';
-import { completedLines, progress } from './rules';
-import type { BingoBoard, BingoLineType } from './types';
+import { boardDimension } from './board.js';
+import { completedLines, progress } from './rules.js';
+import type { BingoBoard, BingoLineType } from './types.js';
 
 export interface LineCount {
   readonly completed: number;

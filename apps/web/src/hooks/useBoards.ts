@@ -19,7 +19,7 @@ import {
   type BingoSize,
   type BingoTheme,
   type BingoWin,
-} from '../domain';
+} from '@bingogoals/domain';
 import type { AppData } from '../storage/storage';
 
 /**

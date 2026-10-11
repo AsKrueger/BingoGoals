@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BoardCard } from '../components/BoardCard';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { HeaderButton, Screen } from '../components/Screen';
-import type { BingoBoard } from '../domain';
+import type { BingoBoard } from '@bingogoals/domain';
 import styles from './CollectionScreen.module.css';
 
 interface CollectionScreenProps {

@@ -1,7 +1,7 @@
 import { Board } from '../components/Board';
 import { ProgressBar } from '../components/ProgressBar';
 import { Screen } from '../components/Screen';
-import { progress, type ArchivedBoard } from '../domain';
+import { progress, type ArchivedBoard } from '@bingogoals/domain';
 import { formatDate } from '../format';
 import styles from './HistoryDetailScreen.module.css';
 

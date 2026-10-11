@@ -1,4 +1,4 @@
-import type { BingoBoard } from './types';
+import type { BingoBoard } from './types.js';
 
 export interface ArchivedBoard {
   readonly board: BingoBoard;
