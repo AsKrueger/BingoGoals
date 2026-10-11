@@ -1,4 +1,10 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import styles from './Modal.module.css';
 
 interface ModalProps {
@@ -22,15 +28,17 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // Se anota durante el primer render, antes de que el diálogo robe el foco.
+  const [opener] = useState(() => document.activeElement);
+
   // Al cerrar, el foco vuelve al elemento que abrió el diálogo.
   useEffect(() => {
-    const opener = document.activeElement;
     return () => {
-      if (opener instanceof HTMLElement) {
+      if (opener instanceof HTMLElement && opener.isConnected) {
         opener.focus();
       }
     };
-  }, []);
+  }, [opener]);
 
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Escape') {

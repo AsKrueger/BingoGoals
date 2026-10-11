@@ -63,6 +63,13 @@ export function updateCell(
   }));
 }
 
+export function updateStyle(
+  board: BingoBoard,
+  changes: Partial<BingoStyle>,
+): BingoBoard {
+  return { ...board, style: { ...board.style, ...changes } };
+}
+
 function replaceCell(
   board: BingoBoard,
   index: number,

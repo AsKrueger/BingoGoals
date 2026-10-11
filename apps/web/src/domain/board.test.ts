@@ -6,6 +6,7 @@ import {
   DEFAULT_STYLE,
   toggleCell,
   updateCell,
+  updateStyle,
 } from './board';
 
 const SIZES = ['3x3', '5x5'] as const;
@@ -175,5 +176,28 @@ describe('updateCell', () => {
     expect(() =>
       updateCell(createBoard('Metas', '3x3'), 9, { text: 'x' }),
     ).toThrow(RangeError);
+  });
+});
+
+describe('updateStyle', () => {
+  test.each(SIZES)(
+    'en %s cambia el tema y conserva el resto del estilo',
+    (size) => {
+      const board = createBoard('Metas', size);
+
+      const result = updateStyle(board, { theme: 'sakura' });
+
+      expect(result.style).toEqual({ ...DEFAULT_STYLE, theme: 'sakura' });
+      expect(result.cells).toBe(board.cells);
+    },
+  );
+
+  test.each(SIZES)('en %s no modifica el tablero recibido', (size) => {
+    const board = createBoard('Metas', size);
+    const snapshot = structuredClone(board);
+
+    updateStyle(board, { theme: 'christmas' });
+
+    expect(board).toEqual(snapshot);
   });
 });

@@ -1,18 +1,12 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
-import { createBoard, type BingoSize } from '../domain';
-import { BoardScreen } from './BoardScreen';
+import type { BingoSize } from '../domain';
+import { startApp } from '../test/helpers';
 
 afterEach(cleanup);
 
 function renderBoard(size: BingoSize) {
-  render(<BoardScreen createInitialBoard={() => createBoard('Metas', size)} />);
+  startApp('Metas', size);
 }
 
 function cell(name: string) {

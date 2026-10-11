@@ -1,0 +1,44 @@
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.message {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cancel,
+.confirm {
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancel {
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.confirm {
+  background: var(--color-danger);
+  color: #ffffff;
+}
