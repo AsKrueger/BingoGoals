@@ -4,8 +4,11 @@ import {
   boardDimension,
   createBoard,
   DEFAULT_STYLE,
+  renameBoard,
+  resetBoard,
   toggleCell,
   updateCell,
+  updateStyle,
 } from './board';
 
 const SIZES = ['3x3', '5x5'] as const;
@@ -175,5 +178,99 @@ describe('updateCell', () => {
     expect(() =>
       updateCell(createBoard('Metas', '3x3'), 9, { text: 'x' }),
     ).toThrow(RangeError);
+  });
+});
+
+describe('updateStyle', () => {
+  test.each(SIZES)(
+    'en %s cambia el tema y conserva el resto del estilo',
+    (size) => {
+      const board = createBoard('Metas', size);
+
+      const result = updateStyle(board, { theme: 'sakura' });
+
+      expect(result.style).toEqual({ ...DEFAULT_STYLE, theme: 'sakura' });
+      expect(result.cells).toBe(board.cells);
+    },
+  );
+
+  test.each(SIZES)('en %s no modifica el tablero recibido', (size) => {
+    const board = createBoard('Metas', size);
+    const snapshot = structuredClone(board);
+
+    updateStyle(board, { theme: 'christmas' });
+
+    expect(board).toEqual(snapshot);
+  });
+});
+
+describe('renameBoard', () => {
+  test.each(SIZES)('en %s cambia el título y conserva lo demás', (size) => {
+    const board = createBoard('Metas', size);
+    const snapshot = structuredClone(board);
+
+    const result = renameBoard(board, 'Metas de otoño');
+
+    expect(result).toEqual({ ...board, title: 'Metas de otoño' });
+    expect(result.cells).toBe(board.cells);
+    expect(board).toEqual(snapshot);
+  });
+});
+
+describe('resetBoard', () => {
+  function playedBoard(size: (typeof SIZES)[number]) {
+    let board = createBoard('Metas', size);
+    board = updateCell(board, 0, {
+      text: 'Correr',
+      icon: '🏋️',
+      color: '#F44336',
+    });
+    board = updateCell(board, 1, { imagePath: 'foto.jpg' });
+    for (const index of [0, 1, 2, 5]) {
+      board = toggleCell(board, index);
+    }
+    return board;
+  }
+
+  test.each(SIZES)('en %s desmarca todas las casillas normales', (size) => {
+    const result = resetBoard(playedBoard(size));
+
+    const normal = result.cells.filter((cell) => !cell.isCentralStar);
+    expect(normal.some((cell) => cell.isCompleted)).toBe(false);
+  });
+
+  test.each(SIZES)('en %s conserva textos, iconos, fotos y colores', (size) => {
+    const board = playedBoard(size);
+
+    const result = resetBoard(board);
+
+    expect(result.cells[0]).toEqual({ ...board.cells[0], isCompleted: false });
+    expect(result.cells[1]?.imagePath).toBe('foto.jpg');
+    expect(result.title).toBe(board.title);
+    expect(result.style).toBe(board.style);
+  });
+
+  test('en 5x5 la estrella central sigue completada', () => {
+    const result = resetBoard(playedBoard('5x5'));
+
+    expect(result.cells[12]).toMatchObject({
+      isCentralStar: true,
+      isCompleted: true,
+    });
+  });
+
+  test('en 5x5 vuelve a completar la estrella si estaba desmarcada', () => {
+    const board = toggleCell(createBoard('Metas', '5x5'), 12);
+
+    expect(resetBoard(board).cells[12]?.isCompleted).toBe(true);
+  });
+
+  test.each(SIZES)('en %s no modifica el tablero recibido', (size) => {
+    const board = playedBoard(size);
+    const snapshot = structuredClone(board);
+
+    resetBoard(board);
+
+    expect(board).toEqual(snapshot);
   });
 });

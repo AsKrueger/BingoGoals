@@ -1,0 +1,23 @@
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  /* Fondo propio para que el texto se lea sobre el dibujo del tema. */
+  background: color-mix(in srgb, var(--color-background) 85%, transparent);
+}
+
+.archived {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.progressText {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}

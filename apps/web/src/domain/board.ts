@@ -63,6 +63,28 @@ export function updateCell(
   }));
 }
 
+export function updateStyle(
+  board: BingoBoard,
+  changes: Partial<BingoStyle>,
+): BingoBoard {
+  return { ...board, style: { ...board.style, ...changes } };
+}
+
+export function renameBoard(board: BingoBoard, title: string): BingoBoard {
+  return { ...board, title };
+}
+
+/** Desmarca todas las casillas salvo la estrella central; conserva lo demás. */
+export function resetBoard(board: BingoBoard): BingoBoard {
+  return {
+    ...board,
+    cells: board.cells.map((cell) => ({
+      ...cell,
+      isCompleted: cell.isCentralStar,
+    })),
+  };
+}
+
 function replaceCell(
   board: BingoBoard,
   index: number,

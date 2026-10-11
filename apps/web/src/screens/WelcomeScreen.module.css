@@ -1,0 +1,69 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 100dvh;
+  padding: 24px;
+  background: linear-gradient(160deg, #6200ee, #3700b3);
+  color: #ffffff;
+  text-align: center;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 120px;
+  height: 120px;
+  border-radius: 32px;
+  background: rgb(255 255 255 / 15%);
+  font-size: 4rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.tagline {
+  max-width: 340px;
+  margin: 0;
+  font-size: 1.05rem;
+  opacity: 0.92;
+}
+
+.start {
+  min-height: 52px;
+  margin-top: 12px;
+  padding: 12px 32px;
+  border: 0;
+  border-radius: 26px;
+  background: #ffffff;
+  color: #6200ee;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.start:focus-visible {
+  outline-color: #ffffff;
+}
+
+.history {
+  min-height: 44px;
+  padding: 8px 20px;
+  border: 2px solid rgb(255 255 255 / 70%);
+  border-radius: 22px;
+  background: transparent;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.history:focus-visible {
+  outline-color: #ffffff;
+}

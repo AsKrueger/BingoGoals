@@ -1,0 +1,66 @@
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.themes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* Cada botón lleva su data-theme, así que usa los colores de su tema. */
+.theme {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px;
+  overflow-wrap: anywhere;
+  border: 2px solid var(--color-border);
+  border-radius: 14px;
+  background-color: var(--color-background);
+  background-image: var(--theme-pattern);
+  background-size: var(--theme-pattern-size);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme[aria-pressed='true'] {
+  border-width: 3px;
+  border-color: var(--color-primary);
+}
+
+.swatch {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  font-size: 0.95rem;
+}
+
+.close {
+  align-self: flex-end;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}

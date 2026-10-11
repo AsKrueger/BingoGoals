@@ -1,0 +1,143 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+}
+
+.heading {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Gráfico circular hecho con un degradado cónico. */
+.donut {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 150px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--color-primary) calc(var(--percentage) * 1%),
+    var(--color-border) 0
+  );
+}
+
+.donutValue {
+  display: grid;
+  place-items: center;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.tiles,
+.bars,
+.details {
+  margin: 0;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* El número va encima de su etiqueta, aunque en el HTML vaya después. */
+.tile {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-primary) 8%, white);
+}
+
+.tile dt {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.tile dd {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
+}
+
+.bar dt {
+  font-weight: 700;
+}
+
+.bar dd {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+/* Barra dibujada con un degradado: --fill marca hasta dónde llega. */
+.bar::after {
+  grid-column: 1 / -1;
+  height: 10px;
+  border-radius: 10px;
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--fill),
+    var(--color-border) 0
+  );
+  content: '';
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.detail:last-child {
+  border-bottom: 0;
+}
+
+.detail dt {
+  color: var(--color-muted);
+}
+
+.detail dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+  text-align: right;
+}
