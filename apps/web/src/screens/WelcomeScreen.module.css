@@ -52,3 +52,18 @@
 .start:focus-visible {
   outline-color: #ffffff;
 }
+
+.history {
+  min-height: 44px;
+  padding: 8px 20px;
+  border: 2px solid rgb(255 255 255 / 70%);
+  border-radius: 22px;
+  background: transparent;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.history:focus-visible {
+  outline-color: #ffffff;
+}

@@ -3,11 +3,16 @@ import {
   activateBoard,
   activeBoard,
   addBoard,
+  archiveBoard,
   createBoard,
   EMPTY_COLLECTION,
+  EMPTY_HISTORY,
   newWin,
   removeBoard,
+  removeFromHistory,
+  renameBoard,
   replaceBoard,
+  resetBoard,
   toggleCell,
   updateCell,
   updateStyle,
@@ -18,9 +23,13 @@ import {
   type BingoWin,
 } from '../domain';
 
-/** Guarda los tableros en memoria, cuál está activo y la celebración pendiente. */
+/**
+ * Guarda en memoria los tableros, cuál está activo, el historial de
+ * archivados y la celebración pendiente.
+ */
 export function useBoards() {
   const [collection, setCollection] = useState(EMPTY_COLLECTION);
+  const [history, setHistory] = useState(EMPTY_HISTORY);
   const [win, setWin] = useState<BingoWin>('none');
   const board = activeBoard(collection);
 
@@ -33,6 +42,7 @@ export function useBoards() {
   return {
     boards: collection.boards,
     board,
+    history,
     win,
 
     create(title: string, size: BingoSize) {
@@ -61,8 +71,27 @@ export function useBoards() {
     setTheme(theme: BingoTheme) {
       changeActive((current) => updateStyle(current, { theme }));
     },
+    rename(title: string) {
+      changeActive((current) => renameBoard(current, title));
+    },
+    reset() {
+      changeActive(resetBoard);
+      setWin('none');
+    },
     dismissWin() {
       setWin('none');
+    },
+
+    /** Mueve el tablero activo de la colección al historial. */
+    archive() {
+      if (board) {
+        setHistory(archiveBoard(history, board));
+        setCollection(removeBoard(collection, board.id));
+        setWin('none');
+      }
+    },
+    removeArchived(boardId: string) {
+      setHistory(removeFromHistory(history, boardId));
     },
   };
 }

@@ -30,6 +30,14 @@
   transform: scale(0.96);
 }
 
+.readonly {
+  cursor: default;
+}
+
+.readonly:active {
+  transform: none;
+}
+
 .withColor {
   border-color: var(--cell-color);
   background-color: color-mix(in srgb, var(--cell-color) 25%, white);

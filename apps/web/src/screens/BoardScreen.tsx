@@ -15,6 +15,8 @@ import {
 import { THEMES } from '../themes';
 import styles from './BoardScreen.module.css';
 
+export type BoardSection = 'collection' | 'stats' | 'settings' | 'history';
+
 interface BoardScreenProps {
   board: BingoBoard;
   win: BingoWin;
@@ -22,8 +24,15 @@ interface BoardScreenProps {
   onUpdate: (index: number, changes: BingoCellChanges) => void;
   onThemeChange: (theme: BingoTheme) => void;
   onDismissWin: () => void;
-  onOpenCollection: () => void;
+  onOpen: (section: BoardSection) => void;
 }
+
+const SECTIONS: { section: BoardSection; label: string; icon: string }[] = [
+  { section: 'collection', label: 'Mis tableros', icon: '🗂️' },
+  { section: 'stats', label: 'Estadísticas', icon: '📊' },
+  { section: 'settings', label: 'Ajustes', icon: '⚙️' },
+  { section: 'history', label: 'Historial', icon: '🕘' },
+];
 
 export function BoardScreen({
   board,
@@ -32,7 +41,7 @@ export function BoardScreen({
   onUpdate,
   onThemeChange,
   onDismissWin,
-  onOpenCollection,
+  onOpen,
 }: BoardScreenProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -48,18 +57,11 @@ export function BoardScreen({
       title={board.title}
       theme={theme}
       actions={
-        <>
-          <HeaderButton
-            label="Cambiar tema"
-            icon="🎨"
-            onClick={() => setIsChoosingTheme(true)}
-          />
-          <HeaderButton
-            label="Mis tableros"
-            icon="🗂️"
-            onClick={onOpenCollection}
-          />
-        </>
+        <HeaderButton
+          label="Cambiar tema"
+          icon="🎨"
+          onClick={() => setIsChoosingTheme(true)}
+        />
       }
     >
       <section className={styles.progress} aria-label="Progreso">
@@ -96,6 +98,22 @@ export function BoardScreen({
             : 'Toca una casilla para marcarla.'}
         </p>
       </div>
+
+      <nav className={styles.sections} aria-label="Secciones">
+        {SECTIONS.map(({ section, label, icon }) => (
+          <button
+            key={section}
+            type="button"
+            className={styles.section}
+            onClick={() => onOpen(section)}
+          >
+            <span className={styles.sectionIcon} aria-hidden="true">
+              {icon}
+            </span>
+            {label}
+          </button>
+        ))}
+      </nav>
 
       {editingIndex !== null && editingCell && (
         <EditCellDialog

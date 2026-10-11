@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { App } from '../App';
 import type { BingoSize } from '../domain';
 
@@ -9,6 +9,10 @@ const SIZE_NAMES: Record<BingoSize, RegExp> = {
 
 export function button(name: string | RegExp) {
   return screen.getByRole('button', { name });
+}
+
+export function heading(name: string) {
+  return screen.getByRole('heading', { level: 1, name });
 }
 
 /** Rellena y envía el formulario de la pantalla de creación. */
@@ -32,4 +36,38 @@ export function addBoard(title: string, size: BingoSize) {
   fireEvent.click(button('Mis tableros'));
   fireEvent.click(button('+ Nuevo tablero'));
   submitCreateForm(title, size);
+}
+
+/** Marca o desmarca las casillas «Objetivo N» indicadas. */
+export function mark(...numbers: number[]) {
+  for (const number of numbers) {
+    fireEvent.click(button(`Objetivo ${number}`));
+    // Si la casilla completa una línea, cierra la celebración.
+    const celebration = screen.queryByRole('button', {
+      name: 'Seguir jugando',
+    });
+    if (celebration) {
+      fireEvent.click(celebration);
+    }
+  }
+}
+
+/** Pulsa el botón de confirmación del diálogo abierto. */
+export function confirm(label: string) {
+  fireEvent.click(
+    within(screen.getByRole('dialog')).getByRole('button', { name: label }),
+  );
+}
+
+/** Desde la pantalla de tablero, archiva el tablero activo. */
+export function archiveActiveBoard() {
+  fireEvent.click(button('Ajustes'));
+  fireEvent.click(button('Archivar tablero'));
+  confirm('Archivar');
+}
+
+/** Valor de una estadística: el <dd> que acompaña al <dt> con ese nombre. */
+export function stat(name: string) {
+  return screen.getByText(name, { selector: 'dt' }).nextElementSibling
+    ?.textContent;
 }

@@ -8,14 +8,16 @@ import {
 import { afterEach, describe, expect, test } from 'vitest';
 import { App } from './App';
 import { BINGO_THEMES } from './domain';
-import { addBoard, button, startApp, submitCreateForm } from './test/helpers';
+import {
+  addBoard,
+  button,
+  heading,
+  startApp,
+  submitCreateForm,
+} from './test/helpers';
 import { THEMES } from './themes';
 
 afterEach(cleanup);
-
-function heading(name: string) {
-  return screen.getByRole('heading', { level: 1, name });
-}
 
 function cells() {
   const board = screen.getByRole('group', { name: 'Tablero de bingo' });
