@@ -1,5 +1,6 @@
 import { useId, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { BingoCell, BingoCellChanges } from '../domain';
+import { resizePhoto } from '../photos';
 import { CELL_COLORS, CELL_ICONS } from './cellOptions';
 import styles from './EditCellDialog.module.css';
 import { Modal } from './Modal';
@@ -22,14 +23,21 @@ export function EditCellDialog({
   const [imagePath, setImagePath] = useState(cell.imagePath);
   const [color, setColor] = useState(cell.color);
 
+  const [photoError, setPhotoError] = useState(false);
+
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setImagePath(reader.result as string);
-    reader.readAsDataURL(file);
+    // La foto se reduce antes de guardarse para no agotar el espacio.
+    resizePhoto(file).then(
+      (photo) => {
+        setImagePath(photo);
+        setPhotoError(false);
+      },
+      () => setPhotoError(true),
+    );
     // Permite volver a elegir el mismo archivo después de quitarlo.
     event.target.value = '';
   }
@@ -115,6 +123,11 @@ export function EditCellDialog({
               </button>
             )}
           </div>
+          {photoError && (
+            <p role="alert" className={styles.error}>
+              No se ha podido leer la foto. Prueba con otra imagen.
+            </p>
+          )}
         </fieldset>
 
         <fieldset className={styles.field}>
