@@ -1,6 +1,11 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
-import { parseStoredData, STORAGE_VERSION, toStoredData } from './schema';
+import {
+  parseStoredData,
+  readStoredData,
+  STORAGE_VERSION,
+  toStoredData,
+} from './schema';
 import { EMPTY_DATA } from './storage';
 import { sampleData } from './testData';
 
@@ -103,5 +108,68 @@ describe('parseStoredData', () => {
     corrupt(data);
 
     expect(parseStoredData(data)).toBeNull();
+  });
+});
+
+// Hallazgo 5 de la revisión de la fase 1.
+describe('foto de una casilla', () => {
+  function withPhoto(imagePath: unknown) {
+    const data = stored();
+    data.collection.boards[0].cells[2].imagePath = imagePath;
+    return data;
+  }
+
+  test.each([
+    'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+    'data:image/png;base64,iVBORw0KGgo=',
+    'data:image/webp;base64,UklGRg==',
+    'data:image/gif;base64,R0lGODlh',
+  ])('admite la URL de datos de imagen %s', (imagePath) => {
+    expect(parseStoredData(withPhoto(imagePath))).not.toBeNull();
+  });
+
+  test('admite una casilla sin foto', () => {
+    expect(parseStoredData(withPhoto(null))).not.toBeNull();
+  });
+
+  test.each([
+    ['una dirección externa', 'https://example.com/foto.png'],
+    ['una ruta de archivo', 'foto.jpg'],
+    ['un texto vacío', ''],
+    ['una URL de datos que no es imagen', 'data:text/html;base64,PGI+'],
+    ['una imagen SVG', 'data:image/svg+xml;base64,PHN2Zz4='],
+    ['una URL de datos sin base64', 'data:image/png,abc'],
+    [
+      'un texto que intenta salirse del url() de CSS',
+      'data:image/png;base64,AAAA"), url("https://example.com/x',
+    ],
+    ['un script', 'javascript:alert(1)'],
+  ])('rechaza %s', (_, imagePath) => {
+    expect(parseStoredData(withPhoto(imagePath))).toBeNull();
+  });
+});
+
+// Hallazgo 1 de la revisión de la fase 1.
+describe('readStoredData', () => {
+  test('sin registro, no hay datos', () => {
+    expect(readStoredData(undefined)).toEqual({ status: 'empty' });
+  });
+
+  test('con un registro válido, devuelve los datos', () => {
+    const data = sampleData();
+
+    expect(readStoredData(structuredClone(toStoredData(data)))).toEqual({
+      status: 'loaded',
+      data,
+    });
+  });
+
+  test.each([
+    ['null', null],
+    ['un texto', 'esto no son datos'],
+    ['un objeto vacío', {}],
+    ['una versión más nueva', { ...toStoredData(sampleData()), version: 2 }],
+  ])('con %s, hay datos pero son ilegibles', (_, raw) => {
+    expect(readStoredData(raw)).toEqual({ status: 'unreadable' });
   });
 });

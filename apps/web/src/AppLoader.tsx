@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App } from './App';
+import { App, type LoadProblem } from './App';
 import styles from './AppLoader.module.css';
 import { EMPTY_DATA, type AppData, type BoardStorage } from './storage/storage';
 
@@ -9,12 +9,13 @@ interface AppLoaderProps {
 
 interface Loaded {
   data: AppData;
-  failed: boolean;
+  problem: LoadProblem | null;
 }
 
 /**
- * Carga los datos guardados antes de mostrar la web. Si no hay datos, están
- * corruptos o no se pueden leer, la web arranca vacía en lugar de fallar.
+ * Carga los datos guardados antes de mostrar la web. Si no se pueden leer, la
+ * web arranca vacía en lugar de fallar, pero lo avisa: no es lo mismo que no
+ * tener datos.
  */
 export function AppLoader({ storage }: AppLoaderProps) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -22,14 +23,22 @@ export function AppLoader({ storage }: AppLoaderProps) {
   useEffect(() => {
     let cancelled = false;
     storage.load().then(
-      (data) => {
-        if (!cancelled) {
-          setLoaded({ data: data ?? EMPTY_DATA, failed: false });
+      (result) => {
+        if (cancelled) {
+          return;
         }
+        setLoaded(
+          result.status === 'loaded'
+            ? { data: result.data, problem: null }
+            : {
+                data: EMPTY_DATA,
+                problem: result.status === 'unreadable' ? 'unreadable' : null,
+              },
+        );
       },
       () => {
         if (!cancelled) {
-          setLoaded({ data: EMPTY_DATA, failed: true });
+          setLoaded({ data: EMPTY_DATA, problem: 'unavailable' });
         }
       },
     );
@@ -51,7 +60,7 @@ export function AppLoader({ storage }: AppLoaderProps) {
     <App
       initialData={loaded.data}
       storage={storage}
-      loadFailed={loaded.failed}
+      loadProblem={loaded.problem}
     />
   );
 }

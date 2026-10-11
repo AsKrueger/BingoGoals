@@ -99,8 +99,60 @@ describe('carga inicial', () => {
     expect(screen.getByRole('alert').textContent).toContain(
       'No se han podido leer los datos guardados',
     );
+    // No es el aviso de datos ilegibles: aquí no se sabe si hay datos.
+    expect(screen.getByRole('alert').textContent).not.toContain('dañados');
 
     fireEvent.click(button('Entendido'));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  // Hallazgo 1 de la revisión de la fase 1.
+  test.each([
+    ['corruptos', 'esto no son datos'],
+    [
+      'de una versión más nueva',
+      { ...toStoredData(sampleData()), version: 99 },
+    ],
+  ])('con datos %s avisa de que no se pueden leer', async (_, raw) => {
+    await open(createMemoryStorage(raw));
+
+    expect(screen.getByRole('alert').textContent).toContain(
+      'no se pueden leer',
+    );
+  });
+
+  test('tras el aviso, el primer cambio conserva una copia de lo ilegible', async () => {
+    const raw = { ...toStoredData(sampleData()), version: 99 };
+    const storage = createMemoryStorage(raw);
+    await open(storage);
+    fireEvent.click(button('Entendido'));
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    fireEvent.click(button('Empezar ahora'));
+    submitCreateForm('Metas', '3x3');
+
+    await waitFor(() =>
+      expect(storage.raw).toMatchObject({ version: STORAGE_VERSION }),
+    );
+    expect(storage.unreadableCopies).toEqual([raw]);
+  });
+
+  test('con datos legibles no se hacen copias', async () => {
+    const storage = createMemoryStorage(toStoredData(sampleData()));
+    await open(storage);
+
+    mark(1);
+    await waitFor(() =>
+      expect(storage.raw).not.toEqual(toStoredData(sampleData())),
+    );
+
+    expect(storage.unreadableCopies).toEqual([]);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  test('sin datos guardados no avisa de nada', async () => {
+    await open(createMemoryStorage());
+
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
