@@ -10,7 +10,7 @@ import {
   type BingoTheme,
   type BoardCollection,
 } from '../domain';
-import type { AppData } from './storage';
+import type { AppData, LoadResult } from './storage';
 
 /**
  * Versión del formato de los datos guardados. Súbela cuando cambie el formato
@@ -28,7 +28,7 @@ export function toStoredData(data: AppData): StoredData {
 
 /**
  * Valida lo leído del dispositivo. Devuelve null si está corrupto o es de una
- * versión desconocida, para que la web arranque vacía en lugar de fallar.
+ * versión desconocida.
  */
 export function parseStoredData(raw: unknown): AppData | null {
   if (!isRecord(raw) || raw.version !== STORAGE_VERSION) {
@@ -39,6 +39,18 @@ export function parseStoredData(raw: unknown): AppData | null {
     return null;
   }
   return { collection, history };
+}
+
+/**
+ * Clasifica el registro leído del dispositivo. Que no haya registro (primera
+ * visita) no es lo mismo que haya uno que no se sabe leer.
+ */
+export function readStoredData(raw: unknown): LoadResult {
+  if (raw === undefined) {
+    return { status: 'empty' };
+  }
+  const data = parseStoredData(raw);
+  return data ? { status: 'loaded', data } : { status: 'unreadable' };
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -58,6 +70,20 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
+/**
+ * Las fotos se guardan como URL de datos de imagen. No se admite otra cosa:
+ * este valor acaba en un `url()` de CSS, y una dirección externa o un texto
+ * manipulado no deben llegar ahí.
+ */
+const IMAGE_DATA_URL =
+  /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/;
+
+function isNullableImage(value: unknown): value is string | null {
+  return (
+    value === null || (typeof value === 'string' && IMAGE_DATA_URL.test(value))
+  );
+}
+
 function isDate(value: unknown): value is string {
   return typeof value === 'string' && !Number.isNaN(Date.parse(value));
 }
@@ -70,7 +96,7 @@ function isCell(value: unknown): value is BingoCell {
     typeof value.isCompleted === 'boolean' &&
     typeof value.isCentralStar === 'boolean' &&
     isNullableString(value.icon) &&
-    isNullableString(value.imagePath) &&
+    isNullableImage(value.imagePath) &&
     isNullableString(value.color)
   );
 }

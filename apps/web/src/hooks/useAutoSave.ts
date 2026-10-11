@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createSaveQueue } from '../storage/saveQueue';
 import type { AppData, BoardStorage } from '../storage/storage';
 
 /**
@@ -7,22 +8,13 @@ import type { AppData, BoardStorage } from '../storage/storage';
  */
 export function useAutoSave(storage: BoardStorage, data: AppData) {
   const [saveError, setSaveError] = useState(false);
+  // Los guardados van de uno en uno, para que nunca gane uno antiguo.
+  const [save] = useState(() =>
+    createSaveQueue(storage, (succeeded) => setSaveError(!succeeded)),
+  );
   // Últimos datos entregados al almacenamiento. Empieza con los cargados,
   // así que no se guarda nada hasta el primer cambio.
   const lastData = useRef(data);
-  // Solo cuenta el resultado del guardado más reciente.
-  const lastSave = useRef(0);
-
-  const save = useCallback(
-    (dataToSave: AppData) => {
-      const current = ++lastSave.current;
-      storage.save(dataToSave).then(
-        () => current === lastSave.current && setSaveError(false),
-        () => current === lastSave.current && setSaveError(true),
-      );
-    },
-    [storage],
-  );
 
   useEffect(() => {
     if (lastData.current !== data) {

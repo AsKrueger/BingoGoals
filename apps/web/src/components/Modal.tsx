@@ -30,10 +30,30 @@ export function Modal({
 
   // Se anota durante el primer render, antes de que el diálogo robe el foco.
   const [opener] = useState(() => document.activeElement);
+  // Elemento del diálogo que tenía el foco la última vez que se desmontó.
+  const lastFocused = useRef<HTMLElement | null>(null);
 
-  // Al cerrar, el foco vuelve al elemento que abrió el diálogo.
   useEffect(() => {
+    const dialog = dialogRef.current;
+
+    // Al abrirse, el foco tiene que estar dentro. Normalmente ya lo ha puesto
+    // un autoFocus, pero no siempre lo hay; y el modo estricto de React
+    // desmonta y vuelve a montar este efecto, lo que saca el foco del diálogo.
+    if (dialog && !dialog.contains(document.activeElement)) {
+      const target =
+        lastFocused.current ??
+        dialog.querySelector<HTMLElement>(FOCUSABLE) ??
+        dialog;
+      target.focus();
+    }
+
+    // Al cerrarse, el foco vuelve al elemento que abrió el diálogo.
     return () => {
+      const active = document.activeElement;
+      lastFocused.current =
+        active instanceof HTMLElement && dialog?.contains(active)
+          ? active
+          : null;
       if (opener instanceof HTMLElement && opener.isConnected) {
         opener.focus();
       }
@@ -72,6 +92,8 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
+        // Permite enfocar el propio diálogo si no contiene nada enfocable.
+        tabIndex={-1}
         className={`${styles.dialog} ${className}`}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={handleKeyDown}

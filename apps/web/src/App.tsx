@@ -15,19 +15,34 @@ import type { AppData, BoardStorage } from './storage/storage';
 type ScreenName =
   'board' | 'create' | 'collection' | 'stats' | 'settings' | 'history';
 
+/**
+ * Por qué la web ha arrancado vacía habiendo podido tener datos:
+ * - `unreadable`: hay datos guardados, pero están dañados o son de una
+ *   versión desconocida.
+ * - `unavailable`: el almacenamiento del dispositivo no responde.
+ */
+export type LoadProblem = 'unreadable' | 'unavailable';
+
+const LOAD_PROBLEM_MESSAGES: Record<LoadProblem, string> = {
+  unreadable:
+    'Los datos guardados en este dispositivo no se pueden leer: están dañados o son de una versión más reciente de BingoGoals. No se han borrado: si haces cambios, se conservará una copia de esos datos.',
+  unavailable:
+    'No se han podido leer los datos guardados en este dispositivo. Es posible que los cambios de esta sesión no se guarden.',
+};
+
 interface AppProps {
   /** Datos cargados del dispositivo, o vacíos si no había. */
   initialData: AppData;
   /** Dónde se guardan los cambios. */
   storage: BoardStorage;
-  /** true si los datos guardados no se pudieron leer al abrir la web. */
-  loadFailed?: boolean;
+  /** Problema al leer los datos guardados, si lo hubo. */
+  loadProblem?: LoadProblem | null;
 }
 
-export function App({ initialData, storage, loadFailed = false }: AppProps) {
+export function App({ initialData, storage, loadProblem = null }: AppProps) {
   const boards = useBoards(initialData);
   const { saveError, retrySave } = useAutoSave(storage, boards.data);
-  const [showLoadError, setShowLoadError] = useState(loadFailed);
+  const [showLoadProblem, setShowLoadProblem] = useState(loadProblem !== null);
   const [screen, setScreen] = useState<ScreenName>('board');
   // Pantalla a la que se vuelve desde el historial.
   const [historyOrigin, setHistoryOrigin] = useState<ScreenName>('board');
@@ -147,15 +162,14 @@ export function App({ initialData, storage, loadFailed = false }: AppProps) {
     <>
       {renderScreen()}
       <NoticeStack>
-        {showLoadError && (
+        {loadProblem && showLoadProblem && (
           <Notice
             kind="error"
             actions={[
-              { label: 'Entendido', onClick: () => setShowLoadError(false) },
+              { label: 'Entendido', onClick: () => setShowLoadProblem(false) },
             ]}
           >
-            No se han podido leer los datos guardados en este dispositivo. Es
-            posible que los cambios de esta sesión no se guarden.
+            {LOAD_PROBLEM_MESSAGES[loadProblem]}
           </Notice>
         )}
         {saveError && (
