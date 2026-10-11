@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import type { BingoCell } from '../domain';
 import styles from './BoardCell.module.css';
 
-export type BoardMode = 'play' | 'edit';
+export type BoardMode = 'play' | 'edit' | 'readonly';
 
 interface BoardCellProps {
   cell: BingoCell;
@@ -21,6 +21,7 @@ export function BoardCell({ cell, mode, onClick }: BoardCellProps) {
     cell.isCentralStar && styles.star,
     cell.imagePath && styles.withPhoto,
     cell.color && styles.withColor,
+    mode === 'readonly' && styles.readonly,
   ]
     .filter(Boolean)
     .join(' ');
@@ -30,15 +31,8 @@ export function BoardCell({ cell, mode, onClick }: BoardCellProps) {
     backgroundImage: cell.imagePath ? `url("${cell.imagePath}")` : undefined,
   } as CSSProperties;
 
-  return (
-    <button
-      type="button"
-      className={className}
-      style={style}
-      aria-label={mode === 'edit' ? `Editar: ${name}` : name}
-      aria-pressed={mode === 'play' ? cell.isCompleted : undefined}
-      onClick={onClick}
-    >
+  const content = (
+    <>
       {icon && !cell.imagePath && (
         <span className={styles.icon} aria-hidden="true">
           {icon}
@@ -50,6 +44,33 @@ export function BoardCell({ cell, mode, onClick }: BoardCellProps) {
           ✓
         </span>
       )}
+    </>
+  );
+
+  // En solo lectura la casilla no es un botón: ni se marca ni se edita.
+  if (mode === 'readonly') {
+    return (
+      <div
+        role="img"
+        className={className}
+        style={style}
+        aria-label={`${name}: ${cell.isCompleted ? 'conseguida' : 'pendiente'}`}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={className}
+      style={style}
+      aria-label={mode === 'edit' ? `Editar: ${name}` : name}
+      aria-pressed={mode === 'play' ? cell.isCompleted : undefined}
+      onClick={onClick}
+    >
+      {content}
     </button>
   );
 }
