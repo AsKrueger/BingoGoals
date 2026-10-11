@@ -1,0 +1,99 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cada tarjeta lleva su data-theme, así que usa los colores de su tema. */
+.card {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 2px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+}
+
+.card[data-active='true'] {
+  border-color: var(--color-primary);
+}
+
+.cardBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0 14px 14px;
+}
+
+.open {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 -14px;
+  padding: 14px 14px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.open:focus-visible,
+.delete:focus-visible {
+  outline-offset: -3px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.details {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.delete {
+  flex: none;
+  width: 52px;
+  border: 0;
+  border-left: 1.5px solid var(--color-border);
+  background: transparent;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.create {
+  min-height: 52px;
+  padding: 12px 24px;
+  border: 2px dashed var(--color-primary);
+  border-radius: 18px;
+  background: transparent;
+  color: var(--color-primary);
+  font-weight: 900;
+  cursor: pointer;
+}
