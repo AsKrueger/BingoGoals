@@ -2,24 +2,35 @@
 
 BingoGoals se reconstruye en cinco fases. El prototipo Flutter, archivado en la etiqueta `flutter-prototype-final`, es la referencia de diseño y de reglas del juego durante todo el proceso.
 
-## Fase 0: Base del monorepo
+## Fase 0 · Base del monorepo
 
-Archivo del prototipo Flutter, monorepo con workspaces de npm, scaffolds de la web y de la API, y comprobaciones de calidad desde la raíz.
+- Issue #0 · Base del monorepo: archivo del prototipo Flutter, scaffolds y calidad de código
 
-- Issue #0: Base del monorepo: archivo del prototipo Flutter, scaffolds y calidad de código.
+## Fase 1 · App web en React (19 oct–8 nov)
 
-## Fase 1: Bingo en la web
+- Issue #1 · Modelo y reglas del bingo
+- Issue #2 · Tablero y edición de casilla
+- Issue #3 · Creación, colección y temas
+- Issue #4 · Historial, estadísticas y ajustes
+- Issue #5 · Guardado local y web instalable
 
-Portar pantallas, temas y lógica de bingo del prototipo a `apps/web`.
+## Fase 2 · Backend y cuentas (9–29 nov)
 
-## Fase 2: API, datos y cuentas
+- Issue #6 · Base de datos
+- Issue #7 · Cuentas
+- Issue #8 · API de tableros y sincronización
+- Issue #9 · Fotos de las casillas
+- Issue #10 · Despliegue
 
-Prisma, PostgreSQL, cuentas de usuario y despliegue.
+## Fase 3 · IA (30 nov–13 dic)
 
-## Fase 3: Inteligencia artificial
+- Issue #11 · IA de lenguaje
+- Issue #12 · IA de voz
+- Issue #13 · IA de visión
+- Issue #14 · Límites de uso
 
-Funciones de IA.
+## Fase 4 · Móvil y lanzamiento (14–31 dic)
 
-## Fase 4: Móvil
-
-Capacitor y el APK de Android.
+- Issue #15 · App Android con Capacitor
+- Issue #16 · Beta cerrada
+- Issue #17 · Lanzamiento
