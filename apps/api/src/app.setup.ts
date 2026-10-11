@@ -1,0 +1,33 @@
+import type { INestApplication } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module.js';
+
+/**
+ * Orígenes desde los que un navegador puede llamar a la API, a partir de
+ * `CORS_ORIGINS`: una lista separada por comas. Sin la variable no se admite
+ * ninguno.
+ */
+export function corsOrigins(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/$/, ''))
+    .filter((origin) => origin !== '');
+}
+
+/** Crea la API tal como se ejecuta, lista para escuchar. */
+export async function createApp(
+  options: { logger?: false } = {},
+): Promise<INestApplication> {
+  const app = await NestFactory.create(AppModule, options);
+
+  app.enableCors({
+    origin: corsOrigins(process.env.CORS_ORIGINS),
+    methods: ['GET', 'POST', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    // La sesión viaja en la cabecera Authorization, no en cookies.
+    credentials: false,
+    maxAge: 600,
+  });
+
+  return app;
+}

@@ -18,6 +18,7 @@ import { sampleData } from './storage/testData';
 import {
   archiveActiveBoard,
   button,
+  fakeAccountServices,
   heading,
   mark,
   submitCreateForm,
@@ -31,7 +32,9 @@ afterEach(cleanup);
 
 /** Abre la web y espera a que termine la carga inicial. */
 async function open(storage: MemoryStorage) {
-  render(<AppLoader storage={storage} />);
+  render(
+    <AppLoader storage={storage} accountServices={fakeAccountServices()} />,
+  );
   await waitFor(() => expect(screen.queryByText(/Cargando/)).toBeNull());
 }
 
@@ -49,7 +52,12 @@ function isPressed(name: string) {
 
 describe('carga inicial', () => {
   test('muestra un estado de carga hasta tener los datos', async () => {
-    render(<AppLoader storage={createMemoryStorage()} />);
+    render(
+      <AppLoader
+        storage={createMemoryStorage()}
+        accountServices={fakeAccountServices()}
+      />,
+    );
 
     expect(screen.getByRole('status').textContent).toContain(
       'Cargando tus tableros…',

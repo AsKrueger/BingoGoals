@@ -1,12 +1,18 @@
 import styles from './WelcomeScreen.module.css';
+import { Button } from '../components/Button';
 
 interface WelcomeScreenProps {
   onStart: () => void;
   /** Si se indica, se ofrece ver el historial de tableros archivados. */
   onOpenHistory?: () => void;
+  onOpenAccount: () => void;
 }
 
-export function WelcomeScreen({ onStart, onOpenHistory }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onStart,
+  onOpenHistory,
+  onOpenAccount,
+}: WelcomeScreenProps) {
   return (
     <main className={styles.screen}>
       <span className={styles.logo} aria-hidden="true">
@@ -17,18 +23,22 @@ export function WelcomeScreen({ onStart, onOpenHistory }: WelcomeScreenProps) {
         Gamifica tus propósitos de vida. Crea tu tablero, marca tus logros y
         alcanza el bingo de tus sueños.
       </p>
-      <button type="button" className={styles.start} onClick={onStart}>
+      <Button
+        variant="inverse"
+        size="large"
+        className={styles.start}
+        onClick={onStart}
+      >
         Empezar ahora
-      </button>
+      </Button>
       {onOpenHistory && (
-        <button
-          type="button"
-          className={styles.history}
-          onClick={onOpenHistory}
-        >
+        <Button variant="inverseOutline" onClick={onOpenHistory}>
           Ver historial
-        </button>
+        </Button>
       )}
+      <Button variant="inverseOutline" onClick={onOpenAccount}>
+        Cuenta
+      </Button>
     </main>
   );
 }

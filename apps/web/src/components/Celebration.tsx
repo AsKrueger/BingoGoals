@@ -2,6 +2,7 @@ import { useEffect, useId, type CSSProperties } from 'react';
 import type { BingoWin } from '@bingogoals/domain';
 import styles from './Celebration.module.css';
 import { Modal } from './Modal';
+import { Button } from './Button';
 
 interface CelebrationProps {
   win: Exclude<BingoWin, 'none'>;
@@ -70,14 +71,9 @@ export function Celebration({ win, onClose }: CelebrationProps) {
         {title}
       </h2>
       <p className={styles.message}>{message}</p>
-      <button
-        type="button"
-        className={styles.button}
-        autoFocus
-        onClick={onClose}
-      >
+      <Button autoFocus onClick={onClose}>
         Seguir jugando
-      </button>
+      </Button>
     </Modal>
   );
 }

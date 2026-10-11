@@ -4,6 +4,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { HeaderButton, Screen } from '../components/Screen';
 import type { BingoBoard } from '@bingogoals/domain';
 import styles from './CollectionScreen.module.css';
+import { Button } from '../components/Button';
 
 interface CollectionScreenProps {
   boards: readonly BingoBoard[];
@@ -49,9 +50,9 @@ export function CollectionScreen({
         ))}
       </ul>
 
-      <button type="button" className={styles.create} onClick={onCreate}>
+      <Button variant="dashed" size="large" onClick={onCreate}>
         + Nuevo tablero
-      </button>
+      </Button>
 
       {deleting && (
         <ConfirmDialog
