@@ -1,0 +1,105 @@
+.cell {
+  /* Lado aproximado de la casilla, a partir del ancho del tablero. */
+  --cell-size: calc(100cqi / var(--board-dimension));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 4px;
+  overflow: hidden;
+  border: 1.5px solid var(--color-border);
+  border-radius: 14%;
+  background: var(--color-surface) center / cover no-repeat;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 5%);
+  font-size: clamp(0.56rem, calc(var(--cell-size) * 0.15), 1.1rem);
+  line-height: 1.15;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    transform 0.1s;
+}
+
+.cell:active {
+  transform: scale(0.96);
+}
+
+.withColor {
+  border-color: var(--cell-color);
+  background-color: color-mix(in srgb, var(--cell-color) 25%, white);
+}
+
+.completed {
+  border-width: 2.5px;
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 15%, white);
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.completed.withColor {
+  background-color: color-mix(in srgb, var(--cell-color) 45%, white);
+}
+
+.star {
+  border-color: #f5b301;
+  background-color: #fff8e1;
+  color: var(--color-primary);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.star.completed {
+  background-image: radial-gradient(circle, #fff8e1 40%, #ffe082);
+}
+
+.withPhoto {
+  color: #ffffff;
+  font-weight: 700;
+  text-shadow: 0 0 3px #000000;
+  /* Oscurece la foto para que el texto se lea. */
+  box-shadow: inset 0 0 0 100vmax rgb(0 0 0 / 35%);
+}
+
+.withPhoto:not(.completed) {
+  filter: grayscale(1);
+}
+
+.icon {
+  font-size: calc(var(--cell-size) * 0.3);
+  line-height: 1;
+}
+
+.text {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.check {
+  position: absolute;
+  top: 6%;
+  right: 6%;
+  display: grid;
+  place-items: center;
+  width: calc(var(--cell-size) * 0.22);
+  height: calc(var(--cell-size) * 0.22);
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: calc(var(--cell-size) * 0.13);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: none;
+}
