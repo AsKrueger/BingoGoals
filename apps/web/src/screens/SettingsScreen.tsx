@@ -6,6 +6,7 @@ import { isValidTitle, TitleField } from '../components/TitleField';
 import type { BingoBoard, BingoTheme } from '@bingogoals/domain';
 import { THEMES } from '../themes';
 import styles from './SettingsScreen.module.css';
+import { Button } from '../components/Button';
 
 interface SettingsScreenProps {
   board: BingoBoard;
@@ -65,9 +66,9 @@ export function SettingsScreen({
           <p className={styles.status} role="status">
             {justSaved && 'Nombre guardado.'}
           </p>
-          <button type="submit" className={styles.primary} disabled={isSaved}>
+          <Button type="submit" disabled={isSaved}>
             Guardar nombre
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -80,13 +81,13 @@ export function SettingsScreen({
             <span aria-hidden="true">{THEMES[theme].emoji}</span>{' '}
             {THEMES[theme].label}
           </p>
-          <button
-            type="button"
-            className={styles.secondary}
+          <Button
+            variant="secondary"
+            className={styles.action}
             onClick={() => setDialog('theme')}
           >
             Cambiar tema
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -97,13 +98,13 @@ export function SettingsScreen({
         <p className={styles.description}>
           Desmarca todas las casillas. Conserva textos, iconos y fotos.
         </p>
-        <button
-          type="button"
-          className={styles.secondary}
+        <Button
+          variant="secondary"
+          className={styles.action}
           onClick={() => setDialog('reset')}
         >
           Reiniciar tablero
-        </button>
+        </Button>
       </section>
 
       <section className={styles.card} aria-labelledby="settings-archive">
@@ -114,13 +115,13 @@ export function SettingsScreen({
           Guarda el tablero en el historial y lo saca de tus tableros. Un
           tablero archivado ya no se puede marcar ni editar.
         </p>
-        <button
-          type="button"
-          className={styles.secondary}
+        <Button
+          variant="secondary"
+          className={styles.action}
           onClick={() => setDialog('archive')}
         >
           Archivar tablero
-        </button>
+        </Button>
       </section>
 
       {dialog === 'theme' && (

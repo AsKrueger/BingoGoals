@@ -73,7 +73,7 @@ describe('esquema', () => {
 
   test('un usuario recibe identificador y fechas', async () => {
     const user = await prisma.user.create({
-      data: { email: 'ana@example.com' },
+      data: { email: 'ana@example.com', passwordHash: 'x' },
     });
 
     expect(user.id).toMatch(/^[0-9a-f-]{36}$/);
@@ -82,10 +82,14 @@ describe('esquema', () => {
   });
 
   test('no admite dos usuarios con el mismo correo', async () => {
-    await prisma.user.create({ data: { email: 'ana@example.com' } });
+    await prisma.user.create({
+      data: { email: 'ana@example.com', passwordHash: 'x' },
+    });
 
     await expect(
-      prisma.user.create({ data: { email: 'ana@example.com' } }),
+      prisma.user.create({
+        data: { email: 'ana@example.com', passwordHash: 'x' },
+      }),
     ).rejects.toMatchObject({ code: 'P2002' });
   });
 
@@ -106,7 +110,7 @@ describe('tableros', () => {
     'un tablero %s se guarda y se recupera idéntico',
     async (size) => {
       const user = await prisma.user.create({
-        data: { email: 'ana@example.com' },
+        data: { email: 'ana@example.com', passwordHash: 'x' },
       });
       const board = sampleBoard(size);
 
@@ -125,7 +129,7 @@ describe('tableros', () => {
 
   test('las casillas y el estilo van dentro del tablero, como JSON', async () => {
     const user = await prisma.user.create({
-      data: { email: 'ana@example.com' },
+      data: { email: 'ana@example.com', passwordHash: 'x' },
     });
     const board = sampleBoard('3x3');
     await prisma.board.create({
@@ -151,7 +155,7 @@ describe('tableros', () => {
 
   test('conserva las fechas del cliente, sin sustituirlas', async () => {
     const user = await prisma.user.create({
-      data: { email: 'ana@example.com' },
+      data: { email: 'ana@example.com', passwordHash: 'x' },
     });
     const board = toggleCell(
       createBoard('Metas', '3x3', new Date('2026-01-01T10:00:00.000Z')),
@@ -174,7 +178,7 @@ describe('tableros', () => {
 
   test('un tablero archivado es el mismo registro con fecha de archivo', async () => {
     const user = await prisma.user.create({
-      data: { email: 'ana@example.com' },
+      data: { email: 'ana@example.com', passwordHash: 'x' },
     });
     const board = sampleBoard();
     await prisma.board.create({
@@ -199,10 +203,10 @@ describe('tableros', () => {
 
   test('cada usuario ve solo sus tableros', async () => {
     const ana = await prisma.user.create({
-      data: { email: 'ana@example.com' },
+      data: { email: 'ana@example.com', passwordHash: 'x' },
     });
     const luis = await prisma.user.create({
-      data: { email: 'luis@example.com' },
+      data: { email: 'luis@example.com', passwordHash: 'x' },
     });
     await prisma.board.create({
       data: toBoardRow({ board: sampleBoard(), archivedAt: null }, ana.id),
@@ -220,7 +224,7 @@ describe('tableros', () => {
 
   test('al borrar un usuario se borran sus tableros', async () => {
     const user = await prisma.user.create({
-      data: { email: 'ana@example.com' },
+      data: { email: 'ana@example.com', passwordHash: 'x' },
     });
     await prisma.board.create({
       data: toBoardRow({ board: sampleBoard(), archivedAt: null }, user.id),

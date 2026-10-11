@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { createFakeAccountApi } from '../account/fakeApi';
+import { createMemorySessionStore } from '../account/sessionStore';
 import { App } from '../App';
 import type { BingoSize } from '@bingogoals/domain';
 import { createMemoryStorage } from '../storage/memoryStorage';
@@ -23,8 +25,22 @@ export function heading(name: string) {
  */
 export function renderApp(initialData: AppData = EMPTY_DATA) {
   const storage = createMemoryStorage();
-  render(<App initialData={initialData} storage={storage} />);
+  render(
+    <App
+      initialData={initialData}
+      storage={storage}
+      accountServices={fakeAccountServices()}
+    />,
+  );
   return storage;
+}
+
+/** Servidor de cuentas en memoria y sesión sin guardar, para los tests. */
+export function fakeAccountServices() {
+  return {
+    api: createFakeAccountApi(),
+    sessionStore: createMemorySessionStore(),
+  };
 }
 
 /** Rellena y envía el formulario de la pantalla de creación. */

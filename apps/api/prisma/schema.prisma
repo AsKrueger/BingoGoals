@@ -11,11 +11,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  boards    Board[]
+  id           String    @id @default(uuid()) @db.Uuid
+  /// Siempre en minúsculas.
+  email        String    @unique
+  /// Contraseña cifrada con scrypt y sal propia; nunca la contraseña.
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  boards       Board[]
+  sessions     Session[]
 
   @@map("users")
 }
@@ -45,4 +49,22 @@ model Board {
 
   @@index([userId])
   @@map("boards")
+}
+
+/// Una sesión iniciada. El cliente guarda el identificador de sesión; aquí
+/// solo se guarda su resumen, así que una copia de la base de datos no sirve
+/// para suplantar a nadie.
+model Session {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 del identificador de sesión, en hexadecimal.
+  tokenHash String @unique @map("token_hash")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("sessions")
 }

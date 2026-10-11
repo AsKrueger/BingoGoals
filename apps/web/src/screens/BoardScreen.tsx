@@ -14,8 +14,10 @@ import {
 } from '@bingogoals/domain';
 import { THEMES } from '../themes';
 import styles from './BoardScreen.module.css';
+import { Button } from '../components/Button';
 
-export type BoardSection = 'collection' | 'stats' | 'settings' | 'history';
+export type BoardSection =
+  'collection' | 'stats' | 'settings' | 'history' | 'account';
 
 interface BoardScreenProps {
   board: BingoBoard;
@@ -32,6 +34,7 @@ const SECTIONS: { section: BoardSection; label: string; icon: string }[] = [
   { section: 'stats', label: 'Estadísticas', icon: '📊' },
   { section: 'settings', label: 'Ajustes', icon: '⚙️' },
   { section: 'history', label: 'Historial', icon: '🕘' },
+  { section: 'account', label: 'Cuenta', icon: '👤' },
 ];
 
 export function BoardScreen({
@@ -84,14 +87,13 @@ export function BoardScreen({
       />
 
       <div className={styles.footer}>
-        <button
-          type="button"
-          className={styles.editToggle}
+        <Button
+          variant="secondary"
           aria-pressed={isEditing}
           onClick={() => setIsEditing(!isEditing)}
         >
           ✏️ Editar casillas
-        </button>
+        </Button>
         <p className={styles.hint}>
           {isEditing
             ? 'Toca una casilla para editarla.'

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import type { AccountServices } from './account/useAccount';
 import { App, type LoadProblem } from './App';
 import styles from './AppLoader.module.css';
 import { EMPTY_DATA, type AppData, type BoardStorage } from './storage/storage';
 
 interface AppLoaderProps {
   storage: BoardStorage;
+  accountServices: AccountServices;
 }
 
 interface Loaded {
@@ -17,7 +19,7 @@ interface Loaded {
  * web arranca vacía en lugar de fallar, pero lo avisa: no es lo mismo que no
  * tener datos.
  */
-export function AppLoader({ storage }: AppLoaderProps) {
+export function AppLoader({ storage, accountServices }: AppLoaderProps) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export function AppLoader({ storage }: AppLoaderProps) {
     <App
       initialData={loaded.data}
       storage={storage}
+      accountServices={accountServices}
       loadProblem={loaded.problem}
     />
   );

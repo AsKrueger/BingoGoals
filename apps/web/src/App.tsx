@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { useAccount, type AccountServices } from './account/useAccount';
 import { Notice, NoticeStack } from './components/Notice';
 import { useAutoSave } from './hooks/useAutoSave';
 import { useBoards } from './hooks/useBoards';
+import { AccountScreen } from './screens/AccountScreen';
+import { AuthScreen } from './screens/AuthScreen';
 import { BoardScreen } from './screens/BoardScreen';
 import { CollectionScreen } from './screens/CollectionScreen';
 import { CreateScreen } from './screens/CreateScreen';
@@ -13,7 +16,15 @@ import { WelcomeScreen } from './screens/WelcomeScreen';
 import type { AppData, BoardStorage } from './storage/storage';
 
 type ScreenName =
-  'board' | 'create' | 'collection' | 'stats' | 'settings' | 'history';
+  | 'board'
+  | 'create'
+  | 'collection'
+  | 'stats'
+  | 'settings'
+  | 'history'
+  | 'account'
+  | 'register'
+  | 'login';
 
 /**
  * Por qué la web ha arrancado vacía habiendo podido tener datos:
@@ -35,12 +46,21 @@ interface AppProps {
   initialData: AppData;
   /** Dónde se guardan los cambios. */
   storage: BoardStorage;
+  /** La API de cuentas y dónde se guarda la sesión. */
+  accountServices: AccountServices;
   /** Problema al leer los datos guardados, si lo hubo. */
   loadProblem?: LoadProblem | null;
 }
 
-export function App({ initialData, storage, loadProblem = null }: AppProps) {
+export function App({
+  initialData,
+  storage,
+  accountServices,
+  loadProblem = null,
+}: AppProps) {
   const boards = useBoards(initialData);
+  // La cuenta es opcional: nada de lo demás depende de ella.
+  const account = useAccount(accountServices);
   const { saveError, retrySave } = useAutoSave(storage, boards.data);
   const [showLoadProblem, setShowLoadProblem] = useState(loadProblem !== null);
   const [screen, setScreen] = useState<ScreenName>('board');
@@ -63,6 +83,30 @@ export function App({ initialData, storage, loadProblem = null }: AppProps) {
             setScreen('board');
           }}
           onCancel={() => setScreen(boards.board ? 'collection' : 'board')}
+        />
+      );
+    }
+
+    if (screen === 'account') {
+      return (
+        <AccountScreen
+          account={account}
+          onOpenAuth={setScreen}
+          onBack={() => setScreen('board')}
+        />
+      );
+    }
+
+    if (screen === 'register' || screen === 'login') {
+      return (
+        <AuthScreen
+          // Al pasar de registro a inicio de sesión el formulario empieza de cero.
+          key={screen}
+          mode={screen}
+          account={account}
+          onDone={() => setScreen('account')}
+          onSwitchMode={setScreen}
+          onBack={() => setScreen('account')}
         />
       );
     }
@@ -92,6 +136,7 @@ export function App({ initialData, storage, loadProblem = null }: AppProps) {
       return (
         <WelcomeScreen
           onStart={() => setScreen('create')}
+          onOpenAccount={() => setScreen('account')}
           onOpenHistory={
             boards.history.length > 0 ? () => openHistory('board') : undefined
           }

@@ -4,6 +4,7 @@ import { resizePhoto } from '../photos';
 import { CELL_COLORS, CELL_ICONS } from './cellOptions';
 import styles from './EditCellDialog.module.css';
 import { Modal } from './Modal';
+import { Button } from './Button';
 
 interface EditCellDialogProps {
   cell: BingoCell;
@@ -156,12 +157,10 @@ export function EditCellDialog({
         </fieldset>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.cancel} onClick={onCancel}>
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button type="submit" className={styles.save}>
-            Guardar
-          </button>
+          </Button>
+          <Button type="submit">Guardar</Button>
         </div>
       </form>
     </Modal>

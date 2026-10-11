@@ -1,0 +1,68 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+}
+
+.heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.email {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.text {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.action {
+  align-self: flex-start;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.noticeText {
+  flex: 1 1 200px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.error {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1.5px solid var(--color-danger);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-danger) 8%, white);
+  color: var(--color-danger);
+  font-size: 0.9rem;
+  font-weight: 700;
+}

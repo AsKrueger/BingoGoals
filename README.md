@@ -52,13 +52,43 @@ npm run dev                                # web, API y dominio, recompilando al
 
 Con eso quedan en marcha la web en http://localhost:5173 y la API en http://localhost:3000.
 
-La web no necesita la API ni la base de datos para funcionar: todavía guarda todo en el dispositivo. Si solo vas a tocar la web, basta con `npm install` y `npm run dev`; la API arrancará igualmente y `GET /health` avisará de que no tiene base de datos.
+La web no necesita la API ni la base de datos para funcionar: guarda los tableros en el dispositivo, y la cuenta es opcional. Si solo vas a tocar la web, basta con `npm install` y `npm run dev`; la API arrancará igualmente y `GET /health` avisará de que no tiene base de datos.
+
+### Configuración
+
+| Variable                         | Dónde                 | Para qué                                                                                                 |
+| -------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                   | `apps/api/.env`       | Conexión con PostgreSQL.                                                                                 |
+| `PORT`                           | `apps/api/.env`       | Puerto de la API. Por defecto, 3000.                                                                     |
+| `CORS_ORIGINS`                   | `apps/api/.env`       | Orígenes desde los que la web puede llamar a la API, separados por comas. Sin ella no se admite ninguno. |
+| `AUTH_RATE_LIMIT_MAX`            | `apps/api/.env`       | Intentos de registro o de inicio de sesión permitidos por ventana. Por defecto, 10.                      |
+| `AUTH_RATE_LIMIT_WINDOW_MINUTES` | `apps/api/.env`       | Duración de esa ventana. Por defecto, 15 minutos.                                                        |
+| `VITE_API_URL`                   | `apps/web/.env.local` | Dirección de la API. Se fija al compilar la web. Por defecto, `http://localhost:3000`.                   |
+
+Los archivos `.env` no se suben al repositorio; `apps/api/.env.example` y `apps/web/.env.example` son las plantillas.
+
+### Cuentas
+
+Un usuario puede registrarse con correo y contraseña, iniciar y cerrar sesión, y borrar su cuenta. Los tableros todavía no se suben al servidor.
+
+| Ruta                   | Qué hace                                                             |
+| ---------------------- | -------------------------------------------------------------------- |
+| `POST /auth/register`  | Crea la cuenta e inicia sesión. Devuelve el identificador de sesión. |
+| `POST /auth/login`     | Inicia sesión. Devuelve el identificador de sesión.                  |
+| `GET /auth/me`         | Devuelve el usuario de la sesión, o un 401 si no es válida.          |
+| `POST /auth/logout`    | Cierra la sesión: su identificador deja de valer.                    |
+| `DELETE /auth/account` | Borra el usuario con sus tableros y sus sesiones.                    |
+
+- La sesión viaja en la cabecera `Authorization: Bearer <identificador>`, no en cookies, y caduca a los 30 días.
+- La contraseña se guarda cifrada con scrypt y sal propia. Del identificador de sesión solo se guarda su resumen SHA-256.
+- Para proteger una ruta nueva, añádele `@UseGuards(AuthGuard)` y recibe la sesión con `@CurrentSession()`.
+- No hay recuperación de contraseña: exige enviar correos, y eso se decide al desplegar.
 
 ### Base de datos
 
 - `compose.yaml` arranca un PostgreSQL 17 accesible solo desde tu equipo, en el puerto 5432. Sus credenciales (`bingogoals` / `bingogoals`) son solo para desarrollo local.
 - La API lee la conexión de `DATABASE_URL`, en `apps/api/.env`. Ese archivo no se sube al repositorio; `apps/api/.env.example` es la plantilla.
-- El esquema está en `apps/api/prisma/schema.prisma`. Tras cambiarlo, `npm run db:migrate:dev --workspace @bingogoals/api` crea la migración y la aplica.
+- El esquema está en `apps/api/prisma/schema.prisma`. Tras cambiarlo, `npm run db:migrate:dev --workspace @bingogoals/api` crea la migración, la aplica y regenera el cliente de Prisma.
 - `npm run db:down` detiene la base de datos y conserva sus datos. Para borrarlos, `docker compose down --volumes`.
 
 ### Estado de la API
@@ -85,7 +115,7 @@ Todos se ejecutan desde la raíz del repositorio.
 | `npm run db:migrate`       | Aplica las migraciones pendientes.                                                |
 | `npm run db:down`          | Detiene PostgreSQL.                                                               |
 
-La primera vez que ejecutes la prueba de humo hay que descargar su navegador: `npx playwright install chromium`.
+La prueba de humo arranca la web compilada y la API, así que necesita PostgreSQL en marcha y migrado (`npm run db:up` y `npm run db:migrate`). La primera vez hay que descargar su navegador: `npx playwright install chromium`.
 
 El dominio se usa compilado. `typecheck`, `test` y `dev` lo compilan antes de empezar; si ejecutas el script de un solo workspace, compílalo antes con `npm run build:domain`.
 

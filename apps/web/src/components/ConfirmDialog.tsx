@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import styles from './ConfirmDialog.module.css';
 import { Modal } from './Modal';
+import { Button } from './Button';
 
 interface ConfirmDialogProps {
   title: string;
@@ -27,17 +28,12 @@ export function ConfirmDialog({
       </h2>
       <p className={styles.message}>{message}</p>
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.cancel}
-          autoFocus
-          onClick={onCancel}
-        >
+        <Button variant="ghost" autoFocus onClick={onCancel}>
           Cancelar
-        </button>
-        <button type="button" className={styles.confirm} onClick={onConfirm}>
+        </Button>
+        <Button variant="danger" onClick={onConfirm}>
           {confirmLabel}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
