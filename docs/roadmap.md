@@ -27,8 +27,8 @@ Plan inicial: 9–29 nov.
 
 - ✅ Issue #6 · Base de datos y dominio compartido
 - ✅ Issue #7 · Cuentas
-- 🔄 Issue M1 · Mantenimiento: limpieza del repositorio y dependencias
-- ⏳ Issue #8 · API de tableros y sincronización
+- ✅ Issue M1 · Mantenimiento: limpieza del repositorio y dependencias
+- 🔄 Issue #8 · API de tableros y sincronización
 - ⏳ Issue #9 · Fotos de las casillas
 - ⏳ Issue #10 · Despliegue
 
@@ -48,6 +48,10 @@ Plan inicial: 14–31 dic.
 - ⏳ Issue #15 · App Android con Capacitor
 - ⏳ Issue #16 · Beta cerrada
 - ⏳ Issue #17 · Lanzamiento
+
+## MVP
+
+El MVP es lo mínimo para que alguien de fuera use BingoGoals: la fase 1, las cuentas y las Issues #8 (sincronización), #9 (fotos) y #10 (despliegue). La IA y la app Android llegan después.
 
 ## Numeración
 
