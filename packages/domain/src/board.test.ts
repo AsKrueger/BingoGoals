@@ -334,3 +334,22 @@ describe('fecha de modificación', () => {
     expect(DEFAULT_STYLE).toEqual({ theme: 'classic' });
   });
 });
+
+describe('títulos', () => {
+  test('createBoard y renameBoard quitan los espacios sobrantes', () => {
+    const board = createBoard('  Metas  ', '3x3');
+
+    expect(board.title).toBe('Metas');
+    expect(renameBoard(board, ' Otras ').title).toBe('Otras');
+  });
+
+  test.each(['', '   ', 'x'.repeat(41)])(
+    'createBoard y renameBoard rechazan el título «%s»',
+    (title) => {
+      expect(() => createBoard(title, '3x3')).toThrow(RangeError);
+      expect(() => renameBoard(createBoard('Metas', '3x3'), title)).toThrow(
+        RangeError,
+      );
+    },
+  );
+});
