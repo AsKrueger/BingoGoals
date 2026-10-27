@@ -30,7 +30,7 @@ Plan inicial: 9–29 nov.
 - ✅ Issue M1 · Mantenimiento: limpieza del repositorio y dependencias
 - ✅ Issue #8 · API de tableros y sincronización
 - ✅ Issue #9 · Fotos de las casillas
-- ⏳ Issue #10 · Despliegue
+- 🔄 Issue #10 · Despliegue
 
 ## Fase 3 · IA ⏳
 

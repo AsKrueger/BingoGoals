@@ -241,3 +241,15 @@ test('la web abre sin conexión tras la primera visita', async ({
   await page.getByRole('button', { name: 'Objetivo 1', exact: true }).click();
   await expect(page.getByText('1 de 9 conseguidos')).toBeVisible();
 });
+
+test('la web compilada declara su política de seguridad de contenido', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  const policy = await page
+    .locator('meta[http-equiv="Content-Security-Policy"]')
+    .getAttribute('content');
+  expect(policy).toContain("script-src 'self'");
+  expect(policy).toContain("connect-src 'self' http://localhost:3000");
+});

@@ -1,0 +1,104 @@
+name: Despliegue
+
+# Publica la web en GitHub Pages y la API en Render cuando la CI de `main`
+# termina en verde. También se puede lanzar a mano con un commit concreto,
+# para volver a una versión anterior; ver docs/despliegue.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit que publicar (por defecto, el último de main)
+        required: false
+
+# Un despliegue cada vez; uno nuevo espera a que termine el anterior.
+concurrency:
+  group: despliegue
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # El commit completo: uno escrito a mano puede venir abreviado, y la API
+  # publicada informa del completo. Sin API_URL configurada todavía no hay
+  # dónde desplegar, y el flujo se omite.
+  commit:
+    if: >-
+      vars.API_URL != '' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push'))
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
+      - id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  web:
+    needs: commit
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.commit.outputs.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Compilar la web contra la API publicada
+        run: |
+          npm run build:domain
+          npm run build --workspace @bingogoals/web
+        env:
+          VITE_API_URL: ${{ vars.API_URL }}
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: apps/web/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  api:
+    needs: commit
+    runs-on: ubuntu-latest
+    environment:
+      name: render
+      url: ${{ vars.API_URL }}/health
+    env:
+      COMMIT: ${{ needs.commit.outputs.sha }}
+      API_URL: ${{ vars.API_URL }}
+    steps:
+      - name: Pedir a Render que despliegue el commit
+        run: curl --fail --silent --show-error --request POST "$HOOK&ref=$COMMIT" > /dev/null
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+      # Render construye la imagen, aplica las migraciones y arranca la API.
+      # El despliegue está hecho cuando /health responde bien con el commit.
+      - name: Esperar a que la API publicada responda con el commit nuevo
+        run: |
+          for attempt in $(seq 1 60); do
+            health=$(curl --silent --max-time 70 "$API_URL/health" || true)
+            echo "$health"
+            if echo "$health" | jq --exit-status --arg commit "$COMMIT" \
+              '.status == "ok" and .version == $commit' > /dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::La API no responde con el commit $COMMIT."
+          exit 1

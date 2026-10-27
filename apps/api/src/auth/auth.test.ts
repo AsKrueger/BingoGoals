@@ -1,6 +1,6 @@
 import { HttpException } from '@nestjs/common';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { corsOrigins } from '../app.setup.js';
+import { corsOrigins, proxyHops } from '../app.setup.js';
 import { parseCredentials } from './credentials.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { RateLimiter } from './rate-limiter.js';
@@ -292,5 +292,19 @@ describe('corsOrigins', () => {
     expect(
       corsOrigins(' http://localhost:5173 ,https://bingogoals.example/ ,, '),
     ).toEqual(['http://localhost:5173', 'https://bingogoals.example']);
+  });
+});
+
+describe('proxyHops', () => {
+  test.each([undefined, '', '0', '-1', '1.5', 'true', 'abc'])(
+    'con «%s» no se confía en ningún proxy',
+    (value) => {
+      expect(proxyHops(value)).toBe(0);
+    },
+  );
+
+  test('admite el número de saltos', () => {
+    expect(proxyHops('1')).toBe(1);
+    expect(proxyHops('2')).toBe(2);
   });
 });

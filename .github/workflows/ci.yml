@@ -44,6 +44,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+      - name: Construir la imagen de la API
+        run: docker build --file apps/api/Dockerfile --tag bingogoals-api .
 
       - name: Aplicar las migraciones
         run: npm run db:migrate
