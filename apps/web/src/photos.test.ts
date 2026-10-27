@@ -34,7 +34,9 @@ describe('resizePhoto', () => {
       width: 0,
       height: 0,
       getContext: vi.fn(() => context),
-      toDataURL: vi.fn(() => 'data:image/jpeg;base64,REDUCIDA'),
+      toBlob: vi.fn((done: (blob: Blob | null) => void) =>
+        done(new Blob([new Uint8Array([0xff, 0xd8, 0xff])])),
+      ),
     };
     vi.stubGlobal(
       'createImageBitmap',
@@ -50,15 +52,28 @@ describe('resizePhoto', () => {
     expect(MAX_PHOTO_SIDE).toBe(1024);
   });
 
-  test('dibuja la foto reducida y la devuelve como JPEG', async () => {
+  test('dibuja la foto reducida y la devuelve como archivo JPEG', async () => {
     const { bitmap, context, canvas } = stubCanvas(4000, 3000);
 
     const result = await resizePhoto(new Blob(['foto']));
 
-    expect(result).toBe('data:image/jpeg;base64,REDUCIDA');
+    expect(result.type).toBe('image/jpeg');
+    expect([...new Uint8Array(result.bytes)]).toEqual([0xff, 0xd8, 0xff]);
     expect([canvas.width, canvas.height]).toEqual([1024, 768]);
     expect(context.drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 1024, 768);
-    expect(canvas.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.85);
+    expect(canvas.toBlob).toHaveBeenCalledWith(
+      expect.any(Function),
+      'image/jpeg',
+      0.85,
+    );
+    expect(bitmap.close).toHaveBeenCalled();
+  });
+
+  test('rechaza si el navegador no puede crear el JPEG', async () => {
+    const { canvas, bitmap } = stubCanvas(640, 480);
+    canvas.toBlob.mockImplementation((done) => done(null));
+
+    await expect(resizePhoto(new Blob(['foto']))).rejects.toThrow();
     expect(bitmap.close).toHaveBeenCalled();
   });
 

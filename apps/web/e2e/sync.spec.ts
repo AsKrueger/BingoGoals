@@ -34,6 +34,10 @@ async function signIn(
 }
 
 async function createBoard(page: Page, title: string) {
+  // Hasta que termina la carga inicial no se sabe si hay tableros.
+  await expect(
+    page.getByRole('button', { name: /^(Empezar ahora|Mis tableros)$/ }),
+  ).toBeVisible();
   const start = page.getByRole('button', { name: 'Empezar ahora' });
   if (await start.isVisible()) {
     await start.click();

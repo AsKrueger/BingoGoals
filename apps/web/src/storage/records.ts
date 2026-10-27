@@ -4,6 +4,7 @@ import {
   isRecord,
   type BingoBoard,
 } from '@bingogoals/domain';
+import type { PhotoExtraction } from './photoMigration';
 import type { AppData, LocalData, LocalRecord } from './storage';
 
 function isNullableDate(value: unknown): value is string | null {
@@ -20,6 +21,32 @@ export function isLocalRecord(value: unknown): value is LocalRecord {
     (value.ownerId === null || typeof value.ownerId === 'string') &&
     typeof value.pending === 'boolean'
   );
+}
+
+/**
+ * Lleva un registro de la versión 3 a la 4: saca sus fotos aparte. Si tenía
+ * fotos y es de una cuenta, pasa a estar pendiente, con fecha nueva, para que
+ * el servidor reciba los identificadores en lugar de las fotos incrustadas.
+ */
+export function migrateRecordV3(
+  raw: unknown,
+  extraction: PhotoExtraction,
+  now: Date = new Date(),
+): unknown {
+  if (!isRecord(raw)) {
+    return raw;
+  }
+  const before = extraction.photos.length;
+  const board = extraction.board(raw.board);
+  const hasPhotos = extraction.photos.length > before;
+  if (hasPhotos && typeof raw.ownerId === 'string' && isRecord(board)) {
+    return {
+      ...raw,
+      board: { ...board, updatedAt: now.toISOString() },
+      pending: true,
+    };
+  }
+  return { ...raw, board };
 }
 
 /**

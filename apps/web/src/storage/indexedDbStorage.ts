@@ -1,16 +1,20 @@
-import { fromAppData, isLocalRecord } from './records';
+import { createPhotoExtraction } from './photoMigration';
+import { fromAppData, isLocalRecord, migrateRecordV3 } from './records';
 import { readLegacyRecord } from './schema';
 import {
+  photoInfo,
   STORAGE_VERSION,
   type BoardStorage,
   type LoadResult,
   type LocalRecord,
+  type PhotoStorage,
   type StorageChanges,
+  type StoredPhoto,
   type UnreadableCopy,
 } from './storage';
 
 const DATABASE = 'bingogoals';
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 
 /** Registro único de las versiones 1 y 2, y copias de datos ilegibles. */
 const STATE = 'state';
@@ -18,10 +22,13 @@ const STATE = 'state';
 const BOARDS = 'boards';
 /** Versión del formato, tablero activo y cursores de sincronización. */
 const META = 'meta';
+/** Una foto por registro, con su identificador como clave. */
+const PHOTOS = 'photos';
 
 const LEGACY_KEY = 'app';
 const UNREADABLE_KEY_PREFIX = 'unreadable-';
 const CHANNEL = 'bingogoals-storage';
+const PHOTO_CHANNEL = 'bingogoals-photos';
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -35,6 +42,9 @@ function openDatabase(): Promise<IDBDatabase> {
       }
       if (!database.objectStoreNames.contains(BOARDS)) {
         database.createObjectStore(BOARDS, { keyPath: 'board.id' });
+      }
+      if (!database.objectStoreNames.contains(PHOTOS)) {
+        database.createObjectStore(PHOTOS, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -60,11 +70,15 @@ async function transact<T>(
     state: IDBObjectStore;
     boards: IDBObjectStore;
     meta: IDBObjectStore;
+    photos: IDBObjectStore;
   }) => Promise<T>,
 ): Promise<T> {
   const database = await openDatabase();
   try {
-    const transaction = database.transaction([STATE, BOARDS, META], mode);
+    const transaction = database.transaction(
+      [STATE, BOARDS, META, PHOTOS],
+      mode,
+    );
     const done = new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
@@ -78,6 +92,7 @@ async function transact<T>(
         state: transaction.objectStore(STATE),
         boards: transaction.objectStore(BOARDS),
         meta: transaction.objectStore(META),
+        photos: transaction.objectStore(PHOTOS),
       });
     } catch (error) {
       transaction.abort();
@@ -94,37 +109,114 @@ function copyKey(suffix = ''): string {
   return `${UNREADABLE_KEY_PREFIX}${new Date().toISOString()}${suffix}`;
 }
 
+function openChannel(name: string): BroadcastChannel | null {
+  return typeof BroadcastChannel === 'undefined'
+    ? null
+    : new BroadcastChannel(name);
+}
+
+/** Fotos en IndexedDB, como archivo. Avisa a las demás pestañas de las nuevas. */
+function createIndexedDbPhotoStorage(): PhotoStorage {
+  const channel = openChannel(PHOTO_CHANNEL);
+
+  return {
+    get: (id) =>
+      transact('readonly', ({ photos }) =>
+        read(photos.get(id) as IDBRequest<StoredPhoto | undefined>),
+      ),
+
+    async put(stored) {
+      await transact('readwrite', async ({ photos }) => {
+        for (const photo of stored) {
+          photos.put(photo);
+        }
+      });
+      channel?.postMessage(stored.map((photo) => photo.id));
+    },
+
+    markUploaded: (id, userId) =>
+      transact('readwrite', async ({ photos }) => {
+        const photo = await read(
+          photos.get(id) as IDBRequest<StoredPhoto | undefined>,
+        );
+        if (photo) {
+          photos.put({ ...photo, uploadedBy: userId });
+        }
+      }),
+
+    remove: (ids) =>
+      transact('readwrite', async ({ photos }) => {
+        for (const id of ids) {
+          photos.delete(id);
+        }
+      }),
+
+    ids: () =>
+      transact('readonly', async ({ photos }) =>
+        (await read(photos.getAllKeys())).map(String),
+      ),
+
+    list: () =>
+      transact('readonly', async ({ photos }) =>
+        (await read(photos.getAll() as IDBRequest<StoredPhoto[]>)).map(
+          photoInfo,
+        ),
+      ),
+
+    subscribe(listener) {
+      if (!channel) {
+        return () => {};
+      }
+      const handle = (event: MessageEvent<string[]>) => listener(event.data);
+      channel.addEventListener('message', handle);
+      return () => channel.removeEventListener('message', handle);
+    },
+  };
+}
+
 /**
  * Almacenamiento en el propio dispositivo, sobre IndexedDB. Avisa a las demás
  * pestañas de cada cambio con un BroadcastChannel.
  */
 export function createIndexedDbStorage(): BoardStorage {
-  const channel =
-    typeof BroadcastChannel === 'undefined'
-      ? null
-      : new BroadcastChannel(CHANNEL);
+  const channel = openChannel(CHANNEL);
 
   return {
+    photos: createIndexedDbPhotoStorage(),
+
     load: () =>
       transact(
         'readwrite',
-        async ({ state, boards, meta }): Promise<LoadResult> => {
-          if ((await read(meta.get('version'))) === STORAGE_VERSION) {
+        async ({ state, boards, meta, photos }): Promise<LoadResult> => {
+          const version = await read(meta.get('version'));
+          if (version === STORAGE_VERSION || version === 3) {
+            // La versión 3 llevaba las fotos dentro de los tableros.
+            const extraction = version === 3 ? createPhotoExtraction() : null;
             const records: LocalRecord[] = [];
             let skipped = 0;
             const stored = await read(boards.getAll());
-            for (const [index, value] of stored.entries()) {
+            for (const [index, raw] of stored.entries()) {
+              const value = extraction ? migrateRecordV3(raw, extraction) : raw;
               if (isLocalRecord(value)) {
                 records.push(value);
+                if (extraction) {
+                  boards.put(value);
+                }
               } else {
                 // Se aparta como copia, sin borrarla, y el resto se carga.
-                state.put(value, copyKey(`-${index}`));
-                const key = (value as { board?: { id?: unknown } })?.board?.id;
+                state.put(raw, copyKey(`-${index}`));
+                const key = (raw as { board?: { id?: unknown } })?.board?.id;
                 if (typeof key === 'string') {
                   boards.delete(key);
                 }
                 skipped++;
               }
+            }
+            if (extraction) {
+              for (const photo of extraction.photos) {
+                photos.put(photo);
+              }
+              meta.put(STORAGE_VERSION, 'version');
             }
             const activeBoardId = await read(meta.get('activeBoardId'));
             const syncCursors = await read(meta.get('syncCursors'));
@@ -156,6 +248,9 @@ export function createIndexedDbStorage(): BoardStorage {
           const data = fromAppData(legacy.data);
           for (const record of data.records) {
             boards.put(record);
+          }
+          for (const photo of legacy.photos) {
+            photos.put(photo);
           }
           meta.put(data.activeBoardId, 'activeBoardId');
           // Ya está migrado y validado: el registro antiguo sobra.

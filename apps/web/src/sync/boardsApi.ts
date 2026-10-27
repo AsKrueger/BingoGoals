@@ -1,10 +1,14 @@
-import type { BingoBoard } from '@bingogoals/domain';
-import { ApiError, createRequester } from '../api/http';
+import { isPhotoId, type BingoBoard } from '@bingogoals/domain';
+import { ApiError, createRequester, type FileBody } from '../api/http';
 import type { ServerRecord } from '../store/boardStore';
 
 /** Resultado de subir un cambio: guardado, o rechazado por uno más reciente. */
 export type WriteOutcome =
-  | { readonly status: 'saved' }
+  | {
+      readonly status: 'saved';
+      /** Fotos del tablero que el servidor todavía no tiene. */
+      readonly missingPhotos: readonly string[];
+    }
   | { readonly status: 'conflict'; readonly current: ServerRecord };
 
 export interface BoardChanges {
@@ -13,7 +17,7 @@ export interface BoardChanges {
   readonly cursor: string;
 }
 
-/** Lo que la sincronización necesita de la API de tableros. */
+/** Lo que la sincronización necesita de la API de tableros y fotos. */
 export interface BoardsApi {
   /** Tableros cambiados desde `since`, o todos si es null. */
   list(token: string, since: string | null): Promise<BoardChanges>;
@@ -22,6 +26,10 @@ export interface BoardsApi {
     record: { board: BingoBoard; archivedAt: string | null },
   ): Promise<WriteOutcome>;
   remove(token: string, id: string, deletedAt: string): Promise<WriteOutcome>;
+  /** Sube una foto. Subirla dos veces no es un error. */
+  putPhoto(token: string, id: string, photo: FileBody): Promise<void>;
+  /** Descarga una foto, o null si el servidor no la tiene. */
+  getPhoto(token: string, id: string): Promise<FileBody | null>;
 }
 
 /**
@@ -54,16 +62,41 @@ export function createBoardsApi(
       ),
 
     put: (token, record) =>
-      request<void>(`/boards/${record.board.id}`, {
-        method: 'PUT',
-        token,
-        body: record,
-      }).then((): WriteOutcome => ({ status: 'saved' }), conflictOf),
+      request<{ missingPhotos?: unknown } | null>(
+        `/boards/${record.board.id}`,
+        { method: 'PUT', token, body: record },
+      ).then(
+        (body): WriteOutcome => ({
+          status: 'saved',
+          missingPhotos: Array.isArray(body?.missingPhotos)
+            ? body.missingPhotos.filter(isPhotoId)
+            : [],
+        }),
+        conflictOf,
+      ),
 
     remove: (token, id, deletedAt) =>
       request<void>(
         `/boards/${id}?deletedAt=${encodeURIComponent(deletedAt)}`,
         { method: 'DELETE', token },
-      ).then((): WriteOutcome => ({ status: 'saved' }), conflictOf),
+      ).then(
+        (): WriteOutcome => ({ status: 'saved', missingPhotos: [] }),
+        conflictOf,
+      ),
+
+    putPhoto: (token, id, photo) =>
+      request<void>(`/photos/${id}`, { method: 'PUT', token, file: photo }),
+
+    getPhoto: (token, id) =>
+      request<FileBody>(`/photos/${id}`, {
+        method: 'GET',
+        token,
+        expectFile: true,
+      }).catch((error: unknown) => {
+        if (error instanceof ApiError && error.status === 404) {
+          return null;
+        }
+        throw error;
+      }),
   };
 }

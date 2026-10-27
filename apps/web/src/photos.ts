@@ -1,5 +1,10 @@
+import type { NewPhoto } from './store/photoStore';
+
 /** Lado máximo, en píxeles, de una foto guardada. */
 export const MAX_PHOTO_SIDE = 1024;
+
+/** Tamaño máximo del archivo elegido, antes de reducirlo: 20 MB. */
+export const MAX_CHOSEN_PHOTO_BYTES = 20 * 1024 * 1024;
 
 const JPEG_QUALITY = 0.85;
 
@@ -18,14 +23,14 @@ export function fitWithin(size: Size, maxSide: number): Size {
 }
 
 /**
- * Reduce una foto en el propio dispositivo y la devuelve como URL de datos
- * JPEG, para que guardarla no agote el espacio. Rechaza si el archivo no es
- * una imagen que el navegador sepa leer.
+ * Reduce una foto en el propio dispositivo y la devuelve como archivo JPEG,
+ * para que guardarla y subirla no agote el espacio ni los datos. Rechaza si
+ * el archivo no es una imagen que el navegador sepa leer.
  */
 export async function resizePhoto(
   file: Blob,
   maxSide: number = MAX_PHOTO_SIDE,
-): Promise<string> {
+): Promise<NewPhoto> {
   const bitmap = await createImageBitmap(file);
   try {
     const { width, height } = fitWithin(bitmap, maxSide);
@@ -42,7 +47,13 @@ export async function resizePhoto(
     context.fillRect(0, 0, width, height);
     context.drawImage(bitmap, 0, 0, width, height);
 
-    return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+    const jpeg = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
+    );
+    if (!jpeg) {
+      throw new Error('No se puede guardar la foto.');
+    }
+    return { type: 'image/jpeg', bytes: await jpeg.arrayBuffer() };
   } finally {
     bitmap.close();
   }

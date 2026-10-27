@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { Account, AccountServices } from '../account/useAccount';
 import type { BoardStore } from '../store/boardStore';
+import type { PhotoStore } from '../store/photoStore';
 import { createSyncEngine, type SyncStatus } from '../sync/syncEngine';
 
 const noSubscription = () => () => {};
@@ -19,6 +20,7 @@ export interface Sync {
  */
 export function useSync(
   store: BoardStore,
+  photos: PhotoStore,
   account: Account,
   { boardsApi, sessionStore }: AccountServices,
 ): Sync {
@@ -41,12 +43,13 @@ export function useSync(
       userId
         ? createSyncEngine({
             store,
+            photos,
             api: boardsApi,
             userId,
             getToken: () => sessionStore.load()?.token ?? null,
           })
         : null,
-    [store, boardsApi, sessionStore, userId],
+    [store, photos, boardsApi, sessionStore, userId],
   );
 
   useEffect(() => {

@@ -79,6 +79,11 @@
   filter: grayscale(1);
 }
 
+/* Hueco de una foto que todavía no ha llegado al dispositivo. */
+.photoMissing {
+  background-color: #9e9e9e;
+}
+
 .icon {
   font-size: calc(var(--cell-size) * 0.3);
   line-height: 1;

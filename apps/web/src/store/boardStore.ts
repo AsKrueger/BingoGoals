@@ -44,6 +44,8 @@ export interface BoardStore {
   markSynced(id: string, version: string): void;
   /** Tableros de una cuenta que el servidor todavía no tiene. */
   pendingFor(userId: string): LocalRecord[];
+  /** Todos los tableros guardados en el dispositivo, de cualquier cuenta. */
+  localRecords(): LocalRecord[];
   /**
    * Cambia la cuenta con sesión. Los tableros creados sin cuenta pasan a ser
    * de ella, y se subirán.
@@ -384,6 +386,8 @@ export function createBoardStore(
         (record) => record.pending && record.ownerId === userId,
       );
     },
+
+    localRecords: () => [...records.values()],
 
     setViewer(userId) {
       viewerId = userId;
