@@ -1,5 +1,7 @@
+import { MAX_PHOTO_BYTES, PHOTO_TYPES } from '@bingogoals/domain';
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 
 /**
@@ -18,7 +20,14 @@ export function corsOrigins(value: string | undefined): string[] {
 export async function createApp(
   options: { logger?: false } = {},
 ): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule, options);
+  const app = await NestFactory.create<NestExpressApplication>(
+    AppModule,
+    options,
+  );
+
+  // Las fotos llegan tal cual, sin JSON. El resto de peticiones siguen con el
+  // límite por defecto de 100 KB.
+  app.useBodyParser('raw', { type: [...PHOTO_TYPES], limit: MAX_PHOTO_BYTES });
 
   app.enableCors({
     origin: corsOrigins(process.env.CORS_ORIGINS),

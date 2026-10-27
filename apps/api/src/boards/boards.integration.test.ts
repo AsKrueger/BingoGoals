@@ -118,7 +118,7 @@ describe('PUT /boards/:id', () => {
     const token = await account('ana@example.com');
     const board = toggleCell(createBoard('Metas', '5x5', T1), 0, T2);
 
-    expect((await put(token, board)).status).toBe(204);
+    expect((await put(token, board)).status).toBe(200);
 
     const reply = await list(token);
     expect(reply.status).toBe(200);
@@ -144,7 +144,7 @@ describe('PUT /boards/:id', () => {
     await put(token, board);
 
     const newer = renameBoard(board, 'Metas nuevas', T2);
-    expect((await put(token, newer)).status).toBe(204);
+    expect((await put(token, newer)).status).toBe(200);
 
     expect((await list(token)).body.boards[0].board.title).toBe('Metas nuevas');
   });
@@ -172,7 +172,7 @@ describe('PUT /boards/:id', () => {
 
     await put(token, board);
 
-    expect((await put(token, board)).status).toBe(204);
+    expect((await put(token, board)).status).toBe(200);
   });
 
   test('misma fecha y distinto contenido es un conflicto: gana la guardada', async () => {
@@ -227,7 +227,7 @@ describe('PUT /boards/:id', () => {
     const token = await account('ana@example.com');
     const board = createBoard('Metas', '3x3', new Date(Date.now() + 60 * 1000));
 
-    expect((await put(token, board)).status).toBe(204);
+    expect((await put(token, board)).status).toBe(200);
   });
 
   test('un identificador que no es un UUID responde 400', async () => {
@@ -272,7 +272,7 @@ describe('DELETE /boards/:id', () => {
     await remove(token, board.id, T2);
 
     expect((await put(token, renameBoard(board, 'Vuelve', T3))).status).toBe(
-      204,
+      200,
     );
 
     const [record] = (await list(token)).body.boards;

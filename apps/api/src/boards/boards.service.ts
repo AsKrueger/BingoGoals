@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { BingoBoard } from '@bingogoals/domain';
+import { photoIdsOf, type BingoBoard } from '@bingogoals/domain';
 import type { Board } from '../generated/prisma/client.js';
+import { photoIdsInCells, PhotosService } from '../photos/photos.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { fromBoardRow, toBoardRow } from './board.mapper.js';
 import type { BoardRecord } from './sync-records.js';
@@ -21,7 +22,11 @@ export interface BoardChanges {
 
 /** Resultado de un cambio: guardado, o rechazado por una versión más reciente. */
 export type WriteResult =
-  | { readonly status: 'saved' }
+  | {
+      readonly status: 'saved';
+      /** Fotos del tablero que el servidor todavía no tiene. */
+      readonly missingPhotos: string[];
+    }
   | { readonly status: 'conflict'; readonly current: BoardRecord }
   | { readonly status: 'not-found' };
 
@@ -61,7 +66,10 @@ function sameBoard(row: Board, board: BingoBoard, archivedAt: string | null) {
  */
 @Injectable()
 export class BoardsService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(PhotosService) private readonly photos: PhotosService,
+  ) {}
 
   /** Tableros cambiados desde `since`, borrados incluidos. */
   async changes(userId: string, since: Date | null): Promise<BoardChanges> {
@@ -83,6 +91,23 @@ export class BoardsService {
   ): Promise<WriteResult> {
     const updatedAt = new Date(board.updatedAt);
     const data = toBoardRow({ board, archivedAt }, userId);
+    const photoIds = photoIdsOf(board);
+    // Las fotos que deja de usar este cambio se borran al guardarlo.
+    const previous = await this.prisma.board.findUnique({
+      where: { id: board.id },
+      select: { userId: true, cells: true },
+    });
+    const released =
+      previous?.userId === userId
+        ? photoIdsInCells(previous.cells).filter((id) => !photoIds.includes(id))
+        : [];
+    const saved = async (): Promise<WriteResult> => {
+      await this.photos.collect(userId, released);
+      return {
+        status: 'saved',
+        missingPhotos: await this.photos.missing(userId, photoIds),
+      };
+    };
 
     // Solo se sustituye si lo guardado es más antiguo: la condición va en la
     // propia escritura, así que dos peticiones a la vez no se pisan.
@@ -91,7 +116,7 @@ export class BoardsService {
       data: { ...data, deletedAt: null },
     });
     if (count === 1) {
-      return { status: 'saved' };
+      return saved();
     }
 
     const existing = await this.prisma.board.findUnique({
@@ -103,13 +128,13 @@ export class BoardsService {
     if (existing) {
       // La misma versión enviada dos veces no es un conflicto.
       return sameBoard(existing, board, archivedAt)
-        ? { status: 'saved' }
+        ? saved()
         : { status: 'conflict', current: toBoardRecord(existing) };
     }
 
     try {
       await this.prisma.board.create({ data });
-      return { status: 'saved' };
+      return saved();
     } catch (error) {
       // Otro dispositivo lo ha creado a la vez: se vuelve a intentar como
       // cambio, con las mismas reglas.
@@ -130,14 +155,16 @@ export class BoardsService {
       where: { id, userId, updatedAt: { lte: when }, deletedAt: null },
       data: { deletedAt: when, updatedAt: when },
     });
+    const existing = await this.prisma.board.findUnique({ where: { id } });
     if (count === 1) {
-      return { status: 'saved' };
+      // Sus fotos dejan de usarse.
+      await this.photos.collect(userId, photoIdsInCells(existing?.cells));
+      return { status: 'saved', missingPhotos: [] };
     }
 
-    const existing = await this.prisma.board.findUnique({ where: { id } });
     if (!existing || existing.deletedAt !== null) {
       // No hay nada que borrar, o ya estaba borrado.
-      return { status: 'saved' };
+      return { status: 'saved', missingPhotos: [] };
     }
     if (existing.userId !== userId) {
       return { status: 'not-found' };
