@@ -212,7 +212,7 @@ La comprobación del foco cubrió el selector de tema, la edición de casilla, l
 
 ## Seguimiento
 
-Estado de los hallazgos no corregidos en esta revisión, actualizado en la Issue M1 (27 de octubre de 2026).
+Estado de los hallazgos no corregidos en esta revisión, actualizado en las Issues M1 y #8.
 
 | #   | Hallazgo                                               | Estado                                                                                                                                            |
 | --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -220,13 +220,13 @@ Estado de los hallazgos no corregidos en esta revisión, actualizado en la Issue
 | 4   | Campos de estilo sin uso                               | Resuelto en la #6: el estilo solo guarda el tema y los datos pasan a la versión 2.                                                                |
 | 6   | Service worker y rutas absolutas en Capacitor          | Pendiente: #15.                                                                                                                                   |
 | 8   | Sin tests en navegador real                            | Resuelto en la #6: prueba de humo con Playwright en la CI.                                                                                        |
-| 11  | Dos pestañas abiertas se pisan                         | Pendiente: entregable de la #8.                                                                                                                   |
+| 11  | Dos pestañas abiertas se pisan                         | Resuelto en la #8: un registro por tablero y aviso entre pestañas.                                                                                |
 | 12  | El navegador puede borrar los datos                    | Pendiente: #10.                                                                                                                                   |
-| 13  | Las copias ilegibles no se recuperan desde la interfaz | Pendiente: entregable de la #8.                                                                                                                   |
-| 14  | La carga inicial no tiene tiempo límite                | Pendiente: entregable de la #8.                                                                                                                   |
+| 13  | Las copias ilegibles no se recuperan desde la interfaz | Resuelto en la #8: la pantalla de cuenta las lista, las descarga y prueba a recuperarlas.                                                         |
+| 14  | La carga inicial no tiene tiempo límite                | Resuelto en la #8: a los 10 segundos arranca vacía y avisa.                                                                                       |
 | 15  | Sin límite para el archivo de foto                     | Pendiente: #9.                                                                                                                                    |
-| 16  | `useBoards` parte del estado del último render         | Pendiente: entregable de la #8.                                                                                                                   |
-| 17  | El dominio no valida los títulos                       | En parte: el dominio compartido valida los tableros desde la #6; los títulos, en la #8.                                                           |
+| 16  | `useBoards` parte del estado del último render         | Resuelto en la #8: cada cambio parte del estado del almacén de tableros.                                                                          |
+| 17  | El dominio no valida los títulos                       | Resuelto en la #8: `isValidTitle` en el dominio, usada por la web y la API.                                                                       |
 | 18  | «Días desde su creación» cuenta periodos de 24 horas   | Pendiente: #16.                                                                                                                                   |
 | 19  | La página no queda inerte detrás de un diálogo         | Pendiente: #16.                                                                                                                                   |
 | 20  | La celebración de línea se cierra sola                 | Pendiente: #16.                                                                                                                                   |

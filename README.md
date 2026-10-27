@@ -69,7 +69,7 @@ Los archivos `.env` no se suben al repositorio; `apps/api/.env.example` y `apps/
 
 ### Cuentas
 
-Un usuario puede registrarse con correo y contraseña, iniciar y cerrar sesión, y borrar su cuenta. Los tableros todavía no se suben al servidor.
+Un usuario puede registrarse con correo y contraseña, iniciar y cerrar sesión, y borrar su cuenta. Con la sesión iniciada, sus tableros se sincronizan entre dispositivos.
 
 | Ruta                   | Qué hace                                                             |
 | ---------------------- | -------------------------------------------------------------------- |
@@ -84,11 +84,29 @@ Un usuario puede registrarse con correo y contraseña, iniciar y cerrar sesión,
 - Para proteger una ruta nueva, añádele `@UseGuards(AuthGuard)` y recibe la sesión con `@CurrentSession()`.
 - No hay recuperación de contraseña: exige enviar correos, y eso se decide al desplegar.
 
+### Sincronización
+
+Primero el dispositivo: cada cambio se guarda al momento en IndexedDB, un registro por tablero, y se sincroniza después en segundo plano. Sin conexión no se pierde nada.
+
+| Ruta                                   | Qué hace                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /boards?since=<cursor>`           | Tableros de la cuenta cambiados desde el cursor, borrados incluidos, y el cursor nuevo.   |
+| `PUT /boards/:id`                      | Crea o sustituye un tablero. Responde 409 con la versión guardada si esa es más reciente. |
+| `DELETE /boards/:id?deletedAt=<fecha>` | Borra el tablero de forma lógica. Responde 409 si tiene un cambio posterior.              |
+
+- La unidad de sincronización es el tablero completo. Ante dos versiones gana la de `updatedAt` más reciente; un borrado cuenta como versión con su fecha.
+- La API rechaza fechas adelantadas más de 5 minutos respecto a su reloj.
+- `GET /boards` pide los cambios por la hora del servidor (`syncedAt`), no por las fechas de los dispositivos.
+- La web sincroniza al abrirse, al volver a primer plano, al recuperar la conexión, un segundo después de cada cambio y cada minuto. Si el servidor no responde, reintenta cada vez más tarde, hasta un minuto.
+- Los tableros creados sin cuenta pasan a la primera cuenta que inicie sesión. Los de una cuenta no se ven ni se suben con otra.
+- Las pestañas del mismo navegador se avisan de cada cambio con un `BroadcastChannel`.
+- Las fotos todavía no se sincronizan: se quedan en el dispositivo hasta la Issue #9.
+
 ### Base de datos
 
 - `compose.yaml` arranca un PostgreSQL 17 accesible solo desde tu equipo, en el puerto 5432. Sus credenciales (`bingogoals` / `bingogoals`) son solo para desarrollo local.
 - La API lee la conexión de `DATABASE_URL`, en `apps/api/.env`. Ese archivo no se sube al repositorio; `apps/api/.env.example` es la plantilla.
-- El esquema está en `apps/api/prisma/schema.prisma`. Tras cambiarlo, `npm run db:migrate:dev --workspace @bingogoals/api` crea la migración, la aplica y regenera el cliente de Prisma.
+- El esquema está en `apps/api/prisma/schema.prisma`. Tras cambiarlo, `npm run db:migrate:dev --workspace @bingogoals/api` crea la migración, la aplica y regenera el cliente de Prisma. Necesita una terminal interactiva.
 - `npm run db:down` detiene la base de datos y conserva sus datos. Para borrarlos, `docker compose down --volumes`.
 
 ### Estado de la API

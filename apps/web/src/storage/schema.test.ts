@@ -2,8 +2,8 @@
 import { describe, expect, test } from 'vitest';
 import {
   parseStoredData,
-  readStoredData,
-  STORAGE_VERSION,
+  readLegacyRecord,
+  RECORD_VERSION,
   toStoredData,
 } from './schema';
 import { EMPTY_DATA } from './storage';
@@ -19,8 +19,8 @@ describe('toStoredData', () => {
   test('añade el número de versión a los datos', () => {
     const data = sampleData();
 
-    expect(toStoredData(data)).toEqual({ version: STORAGE_VERSION, ...data });
-    expect(STORAGE_VERSION).toBe(2);
+    expect(toStoredData(data)).toEqual({ version: RECORD_VERSION, ...data });
+    expect(RECORD_VERSION).toBe(2);
   });
 });
 
@@ -150,15 +150,15 @@ describe('foto de una casilla', () => {
 });
 
 // Hallazgo 1 de la revisión de la fase 1.
-describe('readStoredData', () => {
+describe('readLegacyRecord', () => {
   test('sin registro, no hay datos', () => {
-    expect(readStoredData(undefined)).toEqual({ status: 'empty' });
+    expect(readLegacyRecord(undefined)).toEqual({ status: 'empty' });
   });
 
   test('con un registro válido, devuelve los datos', () => {
     const data = sampleData();
 
-    expect(readStoredData(structuredClone(toStoredData(data)))).toEqual({
+    expect(readLegacyRecord(structuredClone(toStoredData(data)))).toEqual({
       status: 'loaded',
       data,
     });
@@ -170,6 +170,6 @@ describe('readStoredData', () => {
     ['un objeto vacío', {}],
     ['una versión más nueva', { ...toStoredData(sampleData()), version: 3 }],
   ])('con %s, hay datos pero son ilegibles', (_, raw) => {
-    expect(readStoredData(raw)).toEqual({ status: 'unreadable' });
+    expect(readLegacyRecord(raw)).toEqual({ status: 'unreadable' });
   });
 });

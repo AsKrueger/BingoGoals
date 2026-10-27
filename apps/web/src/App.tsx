@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAccount, type AccountServices } from './account/useAccount';
 import { Notice, NoticeStack } from './components/Notice';
-import { useAutoSave } from './hooks/useAutoSave';
 import { useBoards } from './hooks/useBoards';
+import { useSync } from './hooks/useSync';
 import { AccountScreen } from './screens/AccountScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { BoardScreen } from './screens/BoardScreen';
@@ -13,7 +13,8 @@ import { HistoryScreen } from './screens/HistoryScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { StatsScreen } from './screens/StatsScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
-import type { AppData, BoardStorage } from './storage/storage';
+import type { BoardStorage } from './storage/storage';
+import type { BoardStore } from './store/boardStore';
 
 type ScreenName =
   | 'board'
@@ -42,26 +43,27 @@ const LOAD_PROBLEM_MESSAGES: Record<LoadProblem, string> = {
 };
 
 interface AppProps {
-  /** Datos cargados del dispositivo, o vacíos si no había. */
-  initialData: AppData;
-  /** Dónde se guardan los cambios. */
+  /** Los tableros, ya cargados del dispositivo. */
+  store: BoardStore;
+  /** El almacenamiento del dispositivo, para las copias de datos ilegibles. */
   storage: BoardStorage;
-  /** La API de cuentas y dónde se guarda la sesión. */
+  /** Las APIs de cuentas y tableros, y dónde se guarda la sesión. */
   accountServices: AccountServices;
   /** Problema al leer los datos guardados, si lo hubo. */
   loadProblem?: LoadProblem | null;
 }
 
 export function App({
-  initialData,
+  store,
   storage,
   accountServices,
   loadProblem = null,
 }: AppProps) {
-  const boards = useBoards(initialData);
+  const boards = useBoards(store);
   // La cuenta es opcional: nada de lo demás depende de ella.
   const account = useAccount(accountServices);
-  const { saveError, retrySave } = useAutoSave(storage, boards.data);
+  const sync = useSync(store, account, accountServices);
+  const { saveError, retrySave } = boards;
   const [showLoadProblem, setShowLoadProblem] = useState(loadProblem !== null);
   const [screen, setScreen] = useState<ScreenName>('board');
   // Pantalla a la que se vuelve desde el historial.
@@ -91,6 +93,9 @@ export function App({
       return (
         <AccountScreen
           account={account}
+          sync={sync}
+          store={store}
+          storage={storage}
           onOpenAuth={setScreen}
           onBack={() => setScreen('board')}
         />
@@ -196,6 +201,7 @@ export function App({
         onUpdate={boards.update}
         onThemeChange={boards.setTheme}
         onDismissWin={boards.dismissWin}
+        syncStatus={sync.status}
         onOpen={(section) =>
           section === 'history' ? openHistory('board') : setScreen(section)
         }

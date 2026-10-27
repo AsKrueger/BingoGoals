@@ -8,6 +8,8 @@ import {
   isBingoStyle,
   isCellsFor,
   isDateString,
+  isValidTitle,
+  MAX_TITLE_LENGTH,
 } from './validation.js';
 
 /** Copia modificable de un tablero válido, para estropearla en cada test. */
@@ -167,5 +169,25 @@ describe('piezas sueltas', () => {
     expect(isDateString('ayer')).toBe(false);
     expect(isDateString(1760000000000)).toBe(false);
     expect(isDateString(null)).toBe(false);
+  });
+});
+
+describe('isValidTitle', () => {
+  test.each(['Metas', 'Metas de 2027', 'a', 'x'.repeat(MAX_TITLE_LENGTH)])(
+    'admite «%s»',
+    (title) => {
+      expect(isValidTitle(title)).toBe(true);
+    },
+  );
+
+  test.each([
+    ['vacío', ''],
+    ['solo espacios', '   '],
+    ['con espacios alrededor', ' Metas '],
+    ['demasiado largo', 'x'.repeat(MAX_TITLE_LENGTH + 1)],
+    ['que no es texto', 42],
+    ['null', null],
+  ])('rechaza un título %s', (_, title) => {
+    expect(isValidTitle(title)).toBe(false);
   });
 });

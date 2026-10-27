@@ -15,6 +15,8 @@ export interface FakeAccountApi extends AccountApi {
   readonly activeTokens: () => string[];
   /** Cierra una sesión desde el servidor, como si hubiera caducado. */
   expire(token: string): void;
+  /** Usuario de una sesión válida; lanza un 401 si no lo es. */
+  userFor(token: string): AccountUser;
 }
 
 /**
@@ -45,6 +47,7 @@ export function createFakeAccountApi(): FakeAccountApi {
     emails: () => [...users.keys()],
     activeTokens: () => [...sessions.keys()],
     expire: (token) => void sessions.delete(token),
+    userFor: (token) => userOf(token),
 
     async register(email, password) {
       const normalized = email.trim().toLowerCase();

@@ -12,27 +12,57 @@ const storedV1: unknown = JSON.parse(
   ),
 );
 
-/** Lee el registro guardado en IndexedDB, o lo sustituye si se pasa uno. */
-function storedRecord(page: Page, write?: unknown) {
+/** Lo guardado en IndexedDB: versión del formato y un registro por tablero. */
+function storedBoards(page: Page) {
   return page.evaluate(
-    (value) =>
-      new Promise<{ version?: number } | undefined>((resolve, reject) => {
+    () =>
+      new Promise<{ version: unknown; boards: unknown[] }>(
+        (resolve, reject) => {
+          const open = indexedDB.open('bingogoals');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const database = open.result;
+            if (!database.objectStoreNames.contains('boards')) {
+              database.close();
+              resolve({ version: undefined, boards: [] });
+              return;
+            }
+            const transaction = database.transaction(['boards', 'meta']);
+            const boards = transaction.objectStore('boards').getAll();
+            const version = transaction.objectStore('meta').get('version');
+            transaction.oncomplete = () => {
+              database.close();
+              resolve({ version: version.result, boards: boards.result });
+            };
+          };
+        },
+      ),
+  );
+}
+
+/**
+ * Deja guardado un registro único, como hacían las versiones 1 y 2, antes de
+ * que la web abra la base de datos. Se hace desde otra página del mismo sitio.
+ */
+async function seedLegacyRecord(page: Page, value: unknown) {
+  await page.goto('/manifest.webmanifest');
+  await page.evaluate(
+    (record) =>
+      new Promise<void>((resolve, reject) => {
         const open = indexedDB.open('bingogoals', 1);
         open.onupgradeneeded = () => open.result.createObjectStore('state');
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
           const database = open.result;
           const transaction = database.transaction('state', 'readwrite');
-          const store = transaction.objectStore('state');
-          const request =
-            value === undefined ? store.get('app') : store.put(value, 'app');
+          transaction.objectStore('state').put(record, 'app');
           transaction.oncomplete = () => {
             database.close();
-            resolve(value === undefined ? request.result : undefined);
+            resolve();
           };
         };
       }),
-    write,
+    value,
   );
 }
 
@@ -101,9 +131,11 @@ test('crear un tablero, marcar, abrir un diálogo con el teclado y recargar', as
 
   // Los cambios se guardan solos, en la versión actual del formato.
   await expect
-    .poll(async () => JSON.stringify(await storedRecord(page)))
+    .poll(async () => JSON.stringify(await storedBoards(page)))
     .toContain('"theme":"christmas"');
-  expect((await storedRecord(page))?.version).toBe(2);
+  const saved = await storedBoards(page);
+  expect(saved.version).toBe(3);
+  expect(saved.boards).toHaveLength(1);
 
   // Recargar: todo sigue igual.
   await page.reload();
@@ -125,19 +157,20 @@ test('los datos de la versión 1 se migran al abrir la web, sin aviso', async ({
   page,
 }) => {
   // Se deja guardado un registro real de la versión 1 y se abre la web.
+  await seedLegacyRecord(page, storedV1);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'BingoGoals' })).toBeVisible();
-  await storedRecord(page, storedV1);
-  await page.reload();
 
   // Los tableros siguen ahí, con su tablero activo y sin ningún aviso.
   await expect(page.getByRole('heading', { name: 'Segundo' })).toBeVisible();
   await expect(page.getByText('2 de 25 conseguidos')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 
-  // Y ya han quedado guardados en la versión 2, sin los campos antiguos.
-  await expect.poll(async () => (await storedRecord(page))?.version).toBe(2);
-  const stored = JSON.stringify(await storedRecord(page));
+  // Y ya han quedado guardados en la versión 3, un registro por tablero y
+  // sin los campos antiguos.
+  await expect.poll(async () => (await storedBoards(page)).version).toBe(3);
+  const saved = await storedBoards(page);
+  expect(saved.boards).toHaveLength(3);
+  const stored = JSON.stringify(saved);
   expect(stored).not.toContain('primaryColor');
   expect(stored).toContain('updatedAt');
 
@@ -185,7 +218,7 @@ test('la web abre sin conexión tras la primera visita', async ({
     )
     .toBe(true);
   await expect
-    .poll(async () => JSON.stringify(await storedRecord(page)))
+    .poll(async () => JSON.stringify(await storedBoards(page)))
     .toContain('Sin conexión');
 
   await context.setOffline(true);

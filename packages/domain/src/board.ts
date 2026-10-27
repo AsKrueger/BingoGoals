@@ -1,4 +1,5 @@
 import type { BingoBoard, BingoCell, BingoSize, BingoStyle } from './types.js';
+import { isValidTitle } from './validation.js';
 
 export const DEFAULT_STYLE: BingoStyle = {
   theme: 'classic',
@@ -17,6 +18,7 @@ export function createBoard(
   size: BingoSize,
   now: Date = new Date(),
 ): BingoBoard {
+  const cleanTitle = checkedTitle(title);
   const total = boardDimension(size) ** 2;
   const center = Math.floor(total / 2);
 
@@ -36,7 +38,7 @@ export function createBoard(
   const createdAt = now.toISOString();
   return {
     id: crypto.randomUUID(),
-    title,
+    title: cleanTitle,
     size,
     cells,
     style: DEFAULT_STYLE,
@@ -89,7 +91,7 @@ export function renameBoard(
   title: string,
   now: Date = new Date(),
 ): BingoBoard {
-  return touch({ ...board, title }, now);
+  return touch({ ...board, title: checkedTitle(title) }, now);
 }
 
 /** Desmarca todas las casillas salvo la estrella central; conserva lo demás. */
@@ -107,6 +109,17 @@ export function resetBoard(
     },
     now,
   );
+}
+
+/** Quita los espacios sobrantes y comprueba que el título sea válido. */
+function checkedTitle(title: string): string {
+  const clean = title.trim();
+  if (!isValidTitle(clean)) {
+    throw new RangeError(
+      'El título del tablero no puede estar vacío ni tener más de 40 caracteres.',
+    );
+  }
+  return clean;
 }
 
 function touch(board: BingoBoard, now: Date): BingoBoard {

@@ -22,7 +22,7 @@ export async function createApp(
 
   app.enableCors({
     origin: corsOrigins(process.env.CORS_ORIGINS),
-    methods: ['GET', 'POST', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     // La sesión viaja en la cabecera Authorization, no en cookies.
     credentials: false,

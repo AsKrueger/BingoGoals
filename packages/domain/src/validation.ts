@@ -15,6 +15,22 @@ import {
 
 type UnknownRecord = Record<string, unknown>;
 
+/** Longitud máxima del título de un tablero. */
+export const MAX_TITLE_LENGTH = 40;
+
+/**
+ * Título válido para un tablero: texto sin espacios sobrantes alrededor, no
+ * vacío y de ${MAX_TITLE_LENGTH} caracteres como mucho.
+ */
+export function isValidTitle(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value !== '' &&
+    value === value.trim() &&
+    value.length <= MAX_TITLE_LENGTH
+  );
+}
+
 export function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

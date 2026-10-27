@@ -1,0 +1,16 @@
+.badge {
+  align-self: center;
+  margin: 0;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.badge[data-status='offline'],
+.badge[data-status='error'] {
+  color: var(--color-danger);
+}
