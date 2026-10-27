@@ -56,7 +56,10 @@ describe('GET /health', () => {
     const response = await fetch(`${url}/health`);
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: 'ok', database: 'ok' });
+    expect(await response.json()).toMatchObject({
+      status: 'ok',
+      database: 'ok',
+    });
   });
 });
 

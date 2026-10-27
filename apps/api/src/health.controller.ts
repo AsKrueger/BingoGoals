@@ -6,6 +6,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service.js';
 
+/**
+ * Commit que se está ejecutando. Render lo da en `RENDER_GIT_COMMIT`; el
+ * despliegue lo usa para saber cuándo ha arrancado la versión nueva.
+ */
+export function runningVersion(env = process.env): string | null {
+  return env.RENDER_GIT_COMMIT || null;
+}
+
 @Controller('health')
 export class HealthController {
   constructor(
@@ -22,6 +30,6 @@ export class HealthController {
         database: 'unavailable',
       });
     }
-    return { status: 'ok', database: 'ok' };
+    return { status: 'ok', database: 'ok', version: runningVersion() };
   }
 }
