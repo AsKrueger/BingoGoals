@@ -12,6 +12,8 @@ import {
   type BingoTheme,
   type BingoWin,
 } from '@bingogoals/domain';
+import { SyncBadge } from '../components/SyncBadge';
+import type { SyncStatus } from '../sync/syncEngine';
 import { THEMES } from '../themes';
 import styles from './BoardScreen.module.css';
 import { Button } from '../components/Button';
@@ -26,6 +28,8 @@ interface BoardScreenProps {
   onUpdate: (index: number, changes: BingoCellChanges) => void;
   onThemeChange: (theme: BingoTheme) => void;
   onDismissWin: () => void;
+  /** Estado de la sincronización, o null sin sesión. */
+  syncStatus?: SyncStatus | null;
   onOpen: (section: BoardSection) => void;
 }
 
@@ -45,6 +49,7 @@ export function BoardScreen({
   onThemeChange,
   onDismissWin,
   onOpen,
+  syncStatus = null,
 }: BoardScreenProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -75,6 +80,7 @@ export function BoardScreen({
           <span className={styles.percentage}>{boardProgress.percentage}%</span>
         </div>
         <ProgressBar label="Progreso del tablero" progress={boardProgress} />
+        {syncStatus && <SyncBadge status={syncStatus} />}
         <p className={styles.progressText}>
           {boardProgress.completed} de {boardProgress.total} conseguidos
         </p>

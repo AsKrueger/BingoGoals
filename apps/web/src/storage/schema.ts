@@ -7,23 +7,32 @@ import {
   type BoardCollection,
 } from '@bingogoals/domain';
 import { migrateStoredData } from './migrations';
-import type { AppData, LoadResult } from './storage';
+import type { AppData } from './storage';
+
+// Formato de las versiones 1 y 2: todos los datos en un único registro. La
+// versión 3 guarda un registro por tablero (ver storage.ts); esto solo sirve
+// para leer lo guardado antes y migrarlo.
 
 /**
- * Versión del formato de los datos guardados. Al cambiar el formato, súbela y
- * añade en migrations.ts el paso desde la versión anterior.
+ * Última versión del formato de un único registro.
  *
  * - 1: formato inicial.
  * - 2: el estilo solo guarda el tema y cada tablero lleva `updatedAt`.
  */
-export const STORAGE_VERSION = 2;
+export const RECORD_VERSION = 2;
+
+/** Resultado de leer el registro único de las versiones 1 y 2. */
+export type LegacyReadResult =
+  | { readonly status: 'empty' }
+  | { readonly status: 'loaded'; readonly data: AppData }
+  | { readonly status: 'unreadable' };
 
 export interface StoredData extends AppData {
   readonly version: number;
 }
 
 export function toStoredData(data: AppData): StoredData {
-  return { version: STORAGE_VERSION, ...data };
+  return { version: RECORD_VERSION, ...data };
 }
 
 /**
@@ -31,7 +40,7 @@ export function toStoredData(data: AppData): StoredData {
  * está corrupto o es de otra versión.
  */
 export function parseStoredData(raw: unknown): AppData | null {
-  if (!isRecord(raw) || raw.version !== STORAGE_VERSION) {
+  if (!isRecord(raw) || raw.version !== RECORD_VERSION) {
     return null;
   }
   const { collection, history } = raw;
@@ -46,7 +55,7 @@ export function isOlderVersion(raw: unknown): boolean {
   return (
     isRecord(raw) &&
     typeof raw.version === 'number' &&
-    raw.version < STORAGE_VERSION
+    raw.version < RECORD_VERSION
   );
 }
 
@@ -55,7 +64,7 @@ export function isOlderVersion(raw: unknown): boolean {
  * versión anterior. Que no haya registro (primera visita) no es lo mismo que
  * haya uno que no se sabe leer.
  */
-export function readStoredData(raw: unknown): LoadResult {
+export function readLegacyRecord(raw: unknown): LegacyReadResult {
   if (raw === undefined) {
     return { status: 'empty' };
   }

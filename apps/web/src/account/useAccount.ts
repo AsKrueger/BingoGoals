@@ -6,11 +6,16 @@ import {
   type AccountUser,
   type Session,
 } from './api';
+import type { BoardsApi } from '../sync/boardsApi';
 import type { SessionStore } from './sessionStore';
 
-/** Lo que hace falta para gestionar la cuenta: la API y dónde guardar la sesión. */
+/**
+ * Lo que hace falta para la cuenta y la sincronización: las APIs y dónde
+ * guardar la sesión.
+ */
 export interface AccountServices {
   readonly api: AccountApi;
+  readonly boardsApi: BoardsApi;
   readonly sessionStore: SessionStore;
 }
 

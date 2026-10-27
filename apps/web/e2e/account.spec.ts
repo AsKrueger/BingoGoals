@@ -73,6 +73,7 @@ test('registrarse, recargar, cerrar sesión, iniciar sesión y borrar la cuenta'
 
   // Cerrar sesión: el identificador antiguo deja de valer en el servidor.
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+  await page.getByRole('button', { name: 'Conservar aquí' }).click();
   await expect(page.getByText('Sin cuenta')).toBeVisible();
   expect(await storedToken(page)).toBeNull();
   expect(

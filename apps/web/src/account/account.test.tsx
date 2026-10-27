@@ -9,7 +9,9 @@ import {
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { App } from '../App';
 import { createMemoryStorage } from '../storage/memoryStorage';
-import { EMPTY_DATA } from '../storage/storage';
+import { EMPTY_LOCAL_DATA } from '../storage/storage';
+import { createBoardStore } from '../store/boardStore';
+import { createFakeBoardsApi } from '../sync/fakeBoardsApi';
 import { button, heading, submitCreateForm } from '../test/helpers';
 import { ApiError, createAccountApi, NetworkError } from './api';
 import { createFakeAccountApi, type FakeAccountApi } from './fakeApi';
@@ -29,14 +31,17 @@ interface Setup {
 
 /** Abre la web con un servidor de cuentas en memoria. */
 function open(setup: Partial<Setup> = {}): Setup {
+  const api = setup.api ?? createFakeAccountApi();
   const services = {
-    api: setup.api ?? createFakeAccountApi(),
+    api,
+    boardsApi: createFakeBoardsApi(api),
     sessionStore: setup.sessionStore ?? createMemorySessionStore(),
   };
+  const storage = createMemoryStorage();
   render(
     <App
-      initialData={EMPTY_DATA}
-      storage={createMemoryStorage()}
+      store={createBoardStore(storage, EMPTY_LOCAL_DATA)}
+      storage={storage}
       accountServices={services}
     />,
   );
@@ -62,6 +67,19 @@ function fill(email: string, password: string) {
 function submit(name: 'Crear cuenta' | 'Iniciar sesión') {
   fireEvent.click(
     within(screen.getByRole('main')).getByRole('button', { name }),
+  );
+}
+
+/** Cierra la sesión eligiendo qué hacer con los tableros de la cuenta. */
+function logOut(
+  choice: 'Conservar aquí' | 'Quitar de aquí' = 'Conservar aquí',
+) {
+  fireEvent.click(button('Cerrar sesión'));
+  fireEvent.click(
+    within(screen.getByRole('dialog', { name: '¿Cerrar sesión?' })).getByRole(
+      'button',
+      { name: choice },
+    ),
   );
 }
 
@@ -149,7 +167,7 @@ describe('registro', () => {
 
   test('con un correo ya usado muestra el error junto al campo y no crea nada', async () => {
     const setup = await registerAna();
-    fireEvent.click(button('Cerrar sesión'));
+    logOut();
     await screen.findByText('Sin cuenta');
 
     fireEvent.click(button('Crear cuenta'));
@@ -234,7 +252,7 @@ describe('registro', () => {
 describe('inicio de sesión', () => {
   async function loggedOut() {
     const setup = await registerAna();
-    fireEvent.click(button('Cerrar sesión'));
+    logOut();
     await screen.findByText('Sin cuenta');
     fireEvent.click(button('Iniciar sesión'));
     return setup;
@@ -347,7 +365,7 @@ describe('cerrar sesión', () => {
     const { api, sessionStore } = await registerAna();
     const token = sessionStore.current!.token;
 
-    fireEvent.click(button('Cerrar sesión'));
+    logOut();
 
     expect(await screen.findByText('Sin cuenta')).toBeTruthy();
     expect(api.activeTokens()).toEqual([]);
@@ -359,7 +377,7 @@ describe('cerrar sesión', () => {
     const { api, sessionStore } = await registerAna();
     api.isDown = true;
 
-    fireEvent.click(button('Cerrar sesión'));
+    logOut();
 
     expect((await screen.findByRole('alert')).textContent).toContain(
       'No hay conexión con el servidor.',
@@ -404,13 +422,15 @@ describe('borrar la cuenta', () => {
 
   test('los tableros del dispositivo se conservan', async () => {
     const storage = createMemoryStorage();
+    const api = createFakeAccountApi();
     const services = {
-      api: createFakeAccountApi(),
+      api,
+      boardsApi: createFakeBoardsApi(api),
       sessionStore: createMemorySessionStore(),
     };
     render(
       <App
-        initialData={EMPTY_DATA}
+        store={createBoardStore(storage, EMPTY_LOCAL_DATA)}
         storage={storage}
         accountServices={services}
       />,
