@@ -15,6 +15,7 @@ const SIZES = ['3x3', '5x5'] as const;
 
 const CREATED = new Date('2026-10-01T10:00:00.000Z');
 const LATER = new Date('2026-10-02T18:30:00.000Z');
+const PHOTO_ID = '0b7c8f3e-5a2d-4c1b-9e6f-1a2b3c4d5e6f';
 
 describe('boardDimension', () => {
   test('devuelve el lado del tablero', () => {
@@ -57,7 +58,7 @@ describe('createBoard', () => {
       expect(board.cells[0]).toMatchObject({
         text: 'Objetivo 1',
         icon: null,
-        imagePath: null,
+        photoId: null,
         color: null,
       });
       expect(board.cells.at(-1)?.text).toBe(`Objetivo ${board.cells.length}`);
@@ -145,22 +146,22 @@ describe('updateCell', () => {
     expect(result).not.toBe(board);
   });
 
-  test('permite quitar el icono, la imagen y el color con null', () => {
+  test('permite quitar el icono, la foto y el color con null', () => {
     const board = updateCell(createBoard('Metas', '3x3'), 0, {
       icon: 'star',
-      imagePath: 'foto.jpg',
+      photoId: PHOTO_ID,
       color: '#FF5722',
     });
 
     const result = updateCell(board, 0, {
       icon: null,
-      imagePath: null,
+      photoId: null,
       color: null,
     });
 
     expect(result.cells[0]).toMatchObject({
       icon: null,
-      imagePath: null,
+      photoId: null,
       color: null,
     });
   });
@@ -232,7 +233,7 @@ describe('resetBoard', () => {
       icon: '🏋️',
       color: '#F44336',
     });
-    board = updateCell(board, 1, { imagePath: 'foto.jpg' });
+    board = updateCell(board, 1, { photoId: PHOTO_ID });
     for (const index of [0, 1, 2, 5]) {
       board = toggleCell(board, index);
     }
@@ -252,7 +253,7 @@ describe('resetBoard', () => {
     const result = resetBoard(board);
 
     expect(result.cells[0]).toEqual({ ...board.cells[0], isCompleted: false });
-    expect(result.cells[1]?.imagePath).toBe('foto.jpg');
+    expect(result.cells[1]?.photoId).toBe(PHOTO_ID);
     expect(result.title).toBe(board.title);
     expect(result.style).toBe(board.style);
   });

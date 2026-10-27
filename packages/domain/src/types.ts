@@ -16,7 +16,8 @@ export interface BingoCell {
   readonly text: string;
   readonly isCompleted: boolean;
   readonly icon: string | null;
-  readonly imagePath: string | null;
+  /** Foto de la casilla, guardada aparte del tablero, o null. */
+  readonly photoId: string | null;
   readonly color: string | null;
   readonly isCentralStar: boolean;
 }
