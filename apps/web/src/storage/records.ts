@@ -40,9 +40,15 @@ export function migrateRecordV3(
   const board = extraction.board(raw.board);
   const hasPhotos = extraction.photos.length > before;
   if (hasPhotos && typeof raw.ownerId === 'string' && isRecord(board)) {
+    // Siempre posterior a la anterior, aunque el reloj vaya atrasado: si
+    // empatara, el servidor se quedaría con su versión.
+    const previous = Date.parse(String(board.updatedAt));
+    const updatedAt = Number.isNaN(previous)
+      ? now
+      : new Date(Math.max(now.getTime(), previous + 1));
     return {
       ...raw,
-      board: { ...board, updatedAt: now.toISOString() },
+      board: { ...board, updatedAt: updatedAt.toISOString() },
       pending: true,
     };
   }
