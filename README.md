@@ -21,19 +21,22 @@ git checkout flutter-prototype-final
 
 ```text
 .
-├── .github/workflows/  # Integración continua
+├── .github/workflows/  # Integración continua y despliegue
 ├── apps/
 │   ├── api/            # @bingogoals/api: API con NestJS y Prisma
-│   │   └── prisma/     # Esquema y migraciones de la base de datos
+│   │   ├── prisma/     # Esquema y migraciones de la base de datos
+│   │   └── Dockerfile  # Imagen de la API para producción
 │   └── web/            # @bingogoals/web: aplicación React + Vite
 │       └── e2e/        # Prueba de humo con Playwright
 ├── packages/
 │   └── domain/         # @bingogoals/domain: modelo y reglas del bingo
 ├── docs/
 │   ├── reviews/        # Revisiones de código de cada fase
+│   ├── despliegue.md   # Guía de despliegue y de vuelta atrás
 │   └── roadmap.md      # Fases del proyecto
 ├── scripts/            # Utilidades de desarrollo
 ├── compose.yaml        # PostgreSQL para desarrollo local
+├── render.yaml         # Servicio de la API en Render
 ├── package.json        # Raíz privada con los workspaces
 └── package-lock.json   # Único lockfile del monorepo
 ```
@@ -63,9 +66,10 @@ La web no necesita la API ni la base de datos para funcionar: guarda los tablero
 | `CORS_ORIGINS`                   | `apps/api/.env`       | Orígenes desde los que la web puede llamar a la API, separados por comas. Sin ella no se admite ninguno. |
 | `AUTH_RATE_LIMIT_MAX`            | `apps/api/.env`       | Intentos de registro o de inicio de sesión permitidos por ventana. Por defecto, 10.                      |
 | `AUTH_RATE_LIMIT_WINDOW_MINUTES` | `apps/api/.env`       | Duración de esa ventana. Por defecto, 15 minutos.                                                        |
+| `TRUST_PROXY`                    | `apps/api/.env`       | Saltos de proxy delante de la API, para saber la IP real del cliente. Por defecto, ninguno.              |
 | `VITE_API_URL`                   | `apps/web/.env.local` | Dirección de la API. Se fija al compilar la web. Por defecto, `http://localhost:3000`.                   |
 
-Los archivos `.env` no se suben al repositorio; `apps/api/.env.example` y `apps/web/.env.example` son las plantillas.
+Los archivos `.env` no se suben al repositorio; `apps/api/.env.example` y `apps/web/.env.example` son las plantillas. La configuración de producción está en [docs/despliegue.md](docs/despliegue.md).
 
 ### Cuentas
 
@@ -123,7 +127,7 @@ La foto de una casilla se guarda aparte del tablero: la casilla solo lleva su id
 
 ### Estado de la API
 
-`GET /health` responde `{"status":"ok","database":"ok"}`. Si la base de datos no responde, devuelve un 503 con `{"status":"error","database":"unavailable"}` en unos segundos, sin quedarse esperando. El puerto se cambia con la variable de entorno `PORT`.
+`GET /health` responde `{"status":"ok","database":"ok","version":null}`. En producción, `version` es el commit desplegado. Si la base de datos no responde, devuelve un 503 con `{"status":"error","database":"unavailable"}` en unos segundos, sin quedarse esperando. El puerto se cambia con la variable de entorno `PORT`.
 
 ## Comandos
 
@@ -148,6 +152,15 @@ Todos se ejecutan desde la raíz del repositorio.
 La prueba de humo arranca la web compilada y la API, así que necesita PostgreSQL en marcha y migrado (`npm run db:up` y `npm run db:migrate`). La primera vez hay que descargar su navegador: `npx playwright install chromium`.
 
 El dominio se usa compilado. `typecheck`, `test` y `dev` lo compilan antes de empezar; si ejecutas el script de un solo workspace, compílalo antes con `npm run build:domain`.
+
+## Despliegue
+
+Al fusionar en `main`, y si la CI pasa, la web se publica en GitHub Pages y la API en Render, con su base de datos en Neon. Todo con planes gratuitos. Los pasos para ponerlo en marcha, las variables de producción y cómo volver a una versión anterior están en [docs/despliegue.md](docs/despliegue.md).
+
+- La web usa rutas relativas: funciona igual desde la raíz que desde `/BingoGoals/`.
+- La web compilada declara una política de seguridad de contenido que solo permite sus propios scripts y conexiones con la API. La API responde con cabeceras de seguridad en todas sus respuestas.
+- Cuando hay tableros guardados, la web pide al navegador que no borre sus datos si le falta espacio. Si no lo concede, la pantalla de la cuenta lo avisa.
+- La imagen de la API (`apps/api/Dockerfile`) aplica las migraciones pendientes al arrancar. La CI la construye en cada pull request.
 
 ## Contribuir
 
