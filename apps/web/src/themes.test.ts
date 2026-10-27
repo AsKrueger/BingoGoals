@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest';
-import { BINGO_THEMES, type BingoTheme } from './domain';
+import { BINGO_THEMES, type BingoTheme } from '@bingogoals/domain';
 import globalCss from './index.css?raw';
 import { THEMES } from './themes';
 import themesCss from './themes.css?raw';

@@ -1,4 +1,4 @@
-import { boardDimension, progress, type BingoBoard } from '../domain';
+import { boardDimension, progress, type BingoBoard } from '@bingogoals/domain';
 import styles from './BoardCard.module.css';
 import { ProgressBar } from './ProgressBar';
 

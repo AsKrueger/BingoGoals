@@ -1,0 +1,22 @@
+{
+  "name": "@bingogoals/domain",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Modelo y reglas del bingo, compartidos por la web y la API.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "build:watch": "tsc --project tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

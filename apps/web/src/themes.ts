@@ -1,4 +1,4 @@
-import type { BingoTheme } from './domain';
+import type { BingoTheme } from '@bingogoals/domain';
 
 interface ThemeInfo {
   readonly label: string;

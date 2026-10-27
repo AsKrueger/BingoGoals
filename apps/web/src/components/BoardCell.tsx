@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
-import type { BingoCell } from '../domain';
+import type { BingoCell } from '@bingogoals/domain';
+import { usePhotoUrl } from '../hooks/usePhotos';
 import styles from './BoardCell.module.css';
 
 export type BoardMode = 'play' | 'edit' | 'readonly';
@@ -14,12 +15,16 @@ export function BoardCell({ cell, mode, onClick }: BoardCellProps) {
   const text = cell.text || 'Objetivo';
   const name = cell.isCentralStar ? `${text} (estrella central)` : text;
   const icon = cell.icon ?? (cell.isCentralStar ? '⭐' : null);
+  const hasPhoto = cell.photoId !== null;
+  const photoUrl = usePhotoUrl(cell.photoId);
 
   const className = [
     styles.cell,
     cell.isCompleted && styles.completed,
     cell.isCentralStar && styles.star,
-    cell.imagePath && styles.withPhoto,
+    hasPhoto && styles.withPhoto,
+    // La foto todavía no está en el dispositivo: se deja el hueco.
+    hasPhoto && !photoUrl && styles.photoMissing,
     cell.color && styles.withColor,
     mode === 'readonly' && styles.readonly,
   ]
@@ -28,12 +33,12 @@ export function BoardCell({ cell, mode, onClick }: BoardCellProps) {
 
   const style = {
     '--cell-color': cell.color ?? undefined,
-    backgroundImage: cell.imagePath ? `url("${cell.imagePath}")` : undefined,
+    backgroundImage: photoUrl ? `url("${photoUrl}")` : undefined,
   } as CSSProperties;
 
   const content = (
     <>
-      {icon && !cell.imagePath && (
+      {icon && !hasPhoto && (
         <span className={styles.icon} aria-hidden="true">
           {icon}
         </span>

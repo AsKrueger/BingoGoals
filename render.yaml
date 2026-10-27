@@ -1,0 +1,27 @@
+# Servicio de la API en Render (Blueprint). Se crea una vez desde el panel de
+# Render, con «New > Blueprint»; ver docs/despliegue.md.
+#
+# Render no despliega por su cuenta: lo hace el flujo «Despliegue» de GitHub
+# Actions, con el gancho de despliegue, cuando la CI de `main` ha pasado.
+services:
+  - type: web
+    name: bingogoals-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: 'off'
+    envVars:
+      # Cadena de conexión directa (sin «-pooler») de Neon. Es un secreto:
+      # Render la pide al crear el servicio y no se guarda en el repositorio.
+      - key: DATABASE_URL
+        sync: false
+      # Origen de la web publicada en GitHub Pages, sin la ruta.
+      - key: CORS_ORIGINS
+        value: https://askrueger.github.io
+      # Render añade un salto de proxy delante de la API.
+      - key: TRUST_PROXY
+        value: '1'

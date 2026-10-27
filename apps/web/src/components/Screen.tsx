@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import type { BingoTheme } from '../domain';
+import type { BingoTheme } from '@bingogoals/domain';
 import styles from './Screen.module.css';
 
 interface ScreenProps {

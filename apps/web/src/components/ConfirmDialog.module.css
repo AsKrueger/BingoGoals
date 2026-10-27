@@ -22,23 +22,3 @@
   gap: 8px;
   margin-top: 4px;
 }
-
-.cancel,
-.confirm {
-  min-height: 44px;
-  padding: 8px 18px;
-  border: 0;
-  border-radius: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.cancel {
-  background: transparent;
-  color: var(--color-primary);
-}
-
-.confirm {
-  background: var(--color-danger);
-  color: #ffffff;
-}

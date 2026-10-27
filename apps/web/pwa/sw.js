@@ -49,10 +49,13 @@ self.addEventListener('fetch', (event) => {
     (async () => {
       const cache = await caches.open(CACHE);
       // Cualquier navegación abre la misma página: la web es de una sola.
-      const cached =
-        request.mode === 'navigate'
-          ? await cache.match('index.html')
-          : await cache.match(request);
+      // Se busca solo por dirección, sin mirar la cabecera Vary: los archivos
+      // se guardaron sin `Origin` y la página los pide con ella, así que con
+      // un servidor que responde `Vary: Origin` no coincidirían nunca.
+      const cached = await cache.match(
+        request.mode === 'navigate' ? 'index.html' : request,
+        { ignoreVary: true },
+      );
       return cached ?? fetch(request);
     })(),
   );

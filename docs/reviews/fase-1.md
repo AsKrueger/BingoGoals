@@ -209,3 +209,32 @@ La comprobación del foco cubrió el selector de tema, la edición de casilla, l
 - Instalar la web en escritorio y en un Android, y comprobar que se abre en ventana propia con su icono.
 - Decidir, en la reevaluación del roadmap, si se añade una prueba de humo con navegador a la integración continua (hallazgos 8 y 22).
 - Tener en cuenta los hallazgos 11 y 12 al fijar las fechas de las Issues #8 y #10: son los dos que pueden hacer perder datos a un usuario real.
+
+## Seguimiento
+
+Estado de los hallazgos no corregidos en esta revisión, actualizado en las Issues M1 y #8.
+
+| #   | Hallazgo                                               | Estado                                                                                                                                            |
+| --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3   | Un único registro con las fotos incrustadas            | En parte: la base de datos ya guarda por tablero (#6). El dispositivo pasa a guardar por tablero en la #8 y las fotos salen del tablero en la #9. |
+| 4   | Campos de estilo sin uso                               | Resuelto en la #6: el estilo solo guarda el tema y los datos pasan a la versión 2.                                                                |
+| 6   | Service worker y rutas absolutas en Capacitor          | Pendiente: #15.                                                                                                                                   |
+| 8   | Sin tests en navegador real                            | Resuelto en la #6: prueba de humo con Playwright en la CI.                                                                                        |
+| 11  | Dos pestañas abiertas se pisan                         | Resuelto en la #8: un registro por tablero y aviso entre pestañas.                                                                                |
+| 12  | El navegador puede borrar los datos                    | Pendiente: #10.                                                                                                                                   |
+| 13  | Las copias ilegibles no se recuperan desde la interfaz | Resuelto en la #8: la pantalla de cuenta las lista, las descarga y prueba a recuperarlas.                                                         |
+| 14  | La carga inicial no tiene tiempo límite                | Resuelto en la #8: a los 10 segundos arranca vacía y avisa.                                                                                       |
+| 15  | Sin límite para el archivo de foto                     | Pendiente: #9.                                                                                                                                    |
+| 16  | `useBoards` parte del estado del último render         | Resuelto en la #8: cada cambio parte del estado del almacén de tableros.                                                                          |
+| 17  | El dominio no valida los títulos                       | Resuelto en la #8: `isValidTitle` en el dominio, usada por la web y la API.                                                                       |
+| 18  | «Días desde su creación» cuenta periodos de 24 horas   | Pendiente: #16.                                                                                                                                   |
+| 19  | La página no queda inerte detrás de un diálogo         | Pendiente: #16.                                                                                                                                   |
+| 20  | La celebración de línea se cierra sola                 | Pendiente: #16.                                                                                                                                   |
+| 21  | `Modal` solo enfocaba botones y campos de texto        | Resuelto en la #7.                                                                                                                                |
+| 22  | El service worker no tenía tests automáticos           | Resuelto en la #6: la prueba de humo abre la web sin conexión. Encontró un fallo de la caché con `Vary: Origin`, corregido allí.                  |
+| 23  | `sw.js` necesita servirse sin caché larga              | Pendiente: #10.                                                                                                                                   |
+| 24  | Sin política de seguridad de contenido                 | Pendiente: #10.                                                                                                                                   |
+| 25  | El manifiesto fija la orientación vertical             | Pendiente: #15.                                                                                                                                   |
+| 26  | `imagePath` contiene una URL de datos                  | Pendiente: #9.                                                                                                                                    |
+| 27  | Estilos de botón repetidos                             | Resuelto en la #7: componente `Button`.                                                                                                           |
+| 28  | `scripts/parallel.mjs` podía dejar procesos huérfanos  | Resuelto en la #6: detiene el árbol de procesos; comprobado con Ctrl+C en Windows.                                                                |

@@ -1,8 +1,9 @@
 import { useId } from 'react';
-import { BINGO_THEMES, type BingoTheme } from '../domain';
+import { BINGO_THEMES, type BingoTheme } from '@bingogoals/domain';
 import { THEMES } from '../themes';
 import { Modal } from './Modal';
 import styles from './ThemeDialog.module.css';
+import { Button } from './Button';
 
 interface ThemeDialogProps {
   theme: BingoTheme;
@@ -37,9 +38,9 @@ export function ThemeDialog({ theme, onSelect, onClose }: ThemeDialogProps) {
           </button>
         ))}
       </div>
-      <button type="button" className={styles.close} onClick={onClose}>
+      <Button className={styles.close} onClick={onClose}>
         Cerrar
-      </button>
+      </Button>
     </Modal>
   );
 }

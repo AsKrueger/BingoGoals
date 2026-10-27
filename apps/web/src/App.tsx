@@ -1,7 +1,16 @@
-import { useState } from 'react';
+import { photoIdsOf } from '@bingogoals/domain';
+import { useEffect, useState } from 'react';
+import { useAccount, type AccountServices } from './account/useAccount';
 import { Notice, NoticeStack } from './components/Notice';
-import { useAutoSave } from './hooks/useAutoSave';
 import { useBoards } from './hooks/useBoards';
+import { PhotoContext } from './hooks/usePhotos';
+import { useSync } from './hooks/useSync';
+import {
+  usePersistentStorage,
+  type Persistence,
+} from './pwa/persistentStorage';
+import { AccountScreen } from './screens/AccountScreen';
+import { AuthScreen } from './screens/AuthScreen';
 import { BoardScreen } from './screens/BoardScreen';
 import { CollectionScreen } from './screens/CollectionScreen';
 import { CreateScreen } from './screens/CreateScreen';
@@ -10,10 +19,20 @@ import { HistoryScreen } from './screens/HistoryScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { StatsScreen } from './screens/StatsScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
-import type { AppData, BoardStorage } from './storage/storage';
+import type { BoardStorage } from './storage/storage';
+import type { BoardStore } from './store/boardStore';
+import { createPhotoStore, type PhotoStore } from './store/photoStore';
 
 type ScreenName =
-  'board' | 'create' | 'collection' | 'stats' | 'settings' | 'history';
+  | 'board'
+  | 'create'
+  | 'collection'
+  | 'stats'
+  | 'settings'
+  | 'history'
+  | 'account'
+  | 'register'
+  | 'login';
 
 /**
  * Por qué la web ha arrancado vacía habiendo podido tener datos:
@@ -31,17 +50,50 @@ const LOAD_PROBLEM_MESSAGES: Record<LoadProblem, string> = {
 };
 
 interface AppProps {
-  /** Datos cargados del dispositivo, o vacíos si no había. */
-  initialData: AppData;
-  /** Dónde se guardan los cambios. */
+  /** Los tableros, ya cargados del dispositivo. */
+  store: BoardStore;
+  /** El almacenamiento del dispositivo: fotos y copias de datos ilegibles. */
   storage: BoardStorage;
+  /** Las fotos de las casillas. Por defecto, las de `storage`. */
+  photos?: PhotoStore;
+  /** Las APIs de cuentas y tableros, y dónde se guarda la sesión. */
+  accountServices: AccountServices;
   /** Problema al leer los datos guardados, si lo hubo. */
   loadProblem?: LoadProblem | null;
+  /** Pide al navegador que no borre los datos. Se puede sustituir en los tests. */
+  requestPersistence?: () => Promise<Persistence>;
 }
 
-export function App({ initialData, storage, loadProblem = null }: AppProps) {
-  const boards = useBoards(initialData);
-  const { saveError, retrySave } = useAutoSave(storage, boards.data);
+export function App({
+  store,
+  storage,
+  photos: givenPhotos,
+  accountServices,
+  loadProblem = null,
+  requestPersistence,
+}: AppProps) {
+  const [photos] = useState(
+    () => givenPhotos ?? createPhotoStore(storage.photos),
+  );
+  const boards = useBoards(store);
+  // La cuenta es opcional: nada de lo demás depende de ella.
+  const account = useAccount(accountServices);
+  const sync = useSync(store, photos, account, accountServices);
+
+  // Al abrir, se borran del dispositivo las fotos que ya no usa ninguna
+  // casilla, de ninguna cuenta.
+  useEffect(() => {
+    const used = new Set(
+      store.localRecords().flatMap((record) => photoIdsOf(record.board)),
+    );
+    photos.collect(used).catch(() => {});
+  }, [store, photos]);
+  // Se pide al navegador que no borre los datos en cuanto hay alguno.
+  const persistence = usePersistentStorage(
+    boards.boards.length > 0 || boards.history.length > 0,
+    requestPersistence,
+  );
+  const { saveError, retrySave } = boards;
   const [showLoadProblem, setShowLoadProblem] = useState(loadProblem !== null);
   const [screen, setScreen] = useState<ScreenName>('board');
   // Pantalla a la que se vuelve desde el historial.
@@ -63,6 +115,34 @@ export function App({ initialData, storage, loadProblem = null }: AppProps) {
             setScreen('board');
           }}
           onCancel={() => setScreen(boards.board ? 'collection' : 'board')}
+        />
+      );
+    }
+
+    if (screen === 'account') {
+      return (
+        <AccountScreen
+          account={account}
+          sync={sync}
+          store={store}
+          storage={storage}
+          persistence={persistence}
+          onOpenAuth={setScreen}
+          onBack={() => setScreen('board')}
+        />
+      );
+    }
+
+    if (screen === 'register' || screen === 'login') {
+      return (
+        <AuthScreen
+          // Al pasar de registro a inicio de sesión el formulario empieza de cero.
+          key={screen}
+          mode={screen}
+          account={account}
+          onDone={() => setScreen('account')}
+          onSwitchMode={setScreen}
+          onBack={() => setScreen('account')}
         />
       );
     }
@@ -92,6 +172,7 @@ export function App({ initialData, storage, loadProblem = null }: AppProps) {
       return (
         <WelcomeScreen
           onStart={() => setScreen('create')}
+          onOpenAccount={() => setScreen('account')}
           onOpenHistory={
             boards.history.length > 0 ? () => openHistory('board') : undefined
           }
@@ -151,6 +232,7 @@ export function App({ initialData, storage, loadProblem = null }: AppProps) {
         onUpdate={boards.update}
         onThemeChange={boards.setTheme}
         onDismissWin={boards.dismissWin}
+        syncStatus={sync.status}
         onOpen={(section) =>
           section === 'history' ? openHistory('board') : setScreen(section)
         }
@@ -159,7 +241,7 @@ export function App({ initialData, storage, loadProblem = null }: AppProps) {
   }
 
   return (
-    <>
+    <PhotoContext value={photos}>
       {renderScreen()}
       <NoticeStack>
         {loadProblem && showLoadProblem && (
@@ -182,6 +264,6 @@ export function App({ initialData, storage, loadProblem = null }: AppProps) {
           </Notice>
         )}
       </NoticeStack>
-    </>
+    </PhotoContext>
   );
 }

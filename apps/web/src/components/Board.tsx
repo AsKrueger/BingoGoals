@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { boardDimension, type BingoBoard } from '../domain';
+import { boardDimension, type BingoBoard } from '@bingogoals/domain';
 import styles from './Board.module.css';
 import { BoardCell, type BoardMode } from './BoardCell';
 

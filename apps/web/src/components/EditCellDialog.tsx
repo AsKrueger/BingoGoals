@@ -1,9 +1,15 @@
 import { useId, useState, type ChangeEvent, type FormEvent } from 'react';
-import type { BingoCell, BingoCellChanges } from '../domain';
-import { resizePhoto } from '../photos';
+import {
+  MAX_PHOTO_BYTES,
+  type BingoCell,
+  type BingoCellChanges,
+} from '@bingogoals/domain';
+import { usePhotos, usePhotoUrl } from '../hooks/usePhotos';
+import { MAX_CHOSEN_PHOTO_BYTES, resizePhoto } from '../photos';
 import { CELL_COLORS, CELL_ICONS } from './cellOptions';
 import styles from './EditCellDialog.module.css';
 import { Modal } from './Modal';
+import { Button } from './Button';
 
 interface EditCellDialogProps {
   cell: BingoCell;
@@ -20,31 +26,55 @@ export function EditCellDialog({
   const textId = useId();
   const [text, setText] = useState(cell.text);
   const [icon, setIcon] = useState(cell.icon);
-  const [imagePath, setImagePath] = useState(cell.imagePath);
+  const [photoId, setPhotoId] = useState(cell.photoId);
   const [color, setColor] = useState(cell.color);
+  const photos = usePhotos();
+  const photoUrl = usePhotoUrl(photoId);
 
-  const [photoError, setPhotoError] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  async function choosePhoto(file: File) {
+    if (file.size > MAX_CHOSEN_PHOTO_BYTES) {
+      setPhotoError(
+        'La foto es demasiado grande: elige una de menos de 20 MB.',
+      );
+      return;
+    }
+    let photo;
+    try {
+      // La foto se reduce antes de guardarse para no agotar el espacio.
+      photo = await resizePhoto(file);
+    } catch {
+      setPhotoError('No se ha podido leer la foto. Prueba con otra imagen.');
+      return;
+    }
+    if (photo.bytes.byteLength > MAX_PHOTO_BYTES || !photos) {
+      setPhotoError('No se ha podido reducir la foto. Prueba con otra imagen.');
+      return;
+    }
+    try {
+      // Se guarda ya en el dispositivo; si al final no se usa, se borra sola.
+      setPhotoId(await photos.add(photo));
+      setPhotoError(null);
+    } catch {
+      setPhotoError(
+        'No se ha podido guardar la foto. Puede que el dispositivo se haya quedado sin espacio.',
+      );
+    }
+  }
 
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
+    if (file) {
+      void choosePhoto(file);
     }
-    // La foto se reduce antes de guardarse para no agotar el espacio.
-    resizePhoto(file).then(
-      (photo) => {
-        setImagePath(photo);
-        setPhotoError(false);
-      },
-      () => setPhotoError(true),
-    );
     // Permite volver a elegir el mismo archivo después de quitarlo.
     event.target.value = '';
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    onSave({ text: text.trim(), icon, imagePath, color });
+    onSave({ text: text.trim(), icon, photoId, color });
   }
 
   return (
@@ -97,15 +127,15 @@ export function EditCellDialog({
         <fieldset className={styles.field}>
           <legend className={styles.label}>Foto</legend>
           <div className={styles.photoRow}>
-            {imagePath && (
+            {photoUrl && (
               <img
                 className={styles.preview}
-                src={imagePath}
+                src={photoUrl}
                 alt="Foto elegida"
               />
             )}
             <label className={styles.fileButton}>
-              {imagePath ? 'Cambiar foto' : 'Elegir foto'}
+              {photoId ? 'Cambiar foto' : 'Elegir foto'}
               <input
                 type="file"
                 accept="image/*"
@@ -113,11 +143,11 @@ export function EditCellDialog({
                 onChange={handlePhotoChange}
               />
             </label>
-            {imagePath && (
+            {photoId && (
               <button
                 type="button"
                 className={styles.option}
-                onClick={() => setImagePath(null)}
+                onClick={() => setPhotoId(null)}
               >
                 Quitar foto
               </button>
@@ -125,7 +155,7 @@ export function EditCellDialog({
           </div>
           {photoError && (
             <p role="alert" className={styles.error}>
-              No se ha podido leer la foto. Prueba con otra imagen.
+              {photoError}
             </p>
           )}
         </fieldset>
@@ -156,12 +186,10 @@ export function EditCellDialog({
         </fieldset>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.cancel} onClick={onCancel}>
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button type="submit" className={styles.save}>
-            Guardar
-          </button>
+          </Button>
+          <Button type="submit">Guardar</Button>
         </div>
       </form>
     </Modal>

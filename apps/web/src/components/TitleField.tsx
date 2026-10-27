@@ -1,3 +1,7 @@
+import {
+  isValidTitle as isValidDomainTitle,
+  MAX_TITLE_LENGTH,
+} from '@bingogoals/domain';
 import { useId } from 'react';
 import styles from './TitleField.module.css';
 
@@ -9,8 +13,9 @@ interface TitleFieldProps {
   autoFocus?: boolean;
 }
 
+/** Lo escrito en el campo, una vez quitados los espacios sobrantes. */
 export function isValidTitle(title: string): boolean {
-  return title.trim() !== '';
+  return isValidDomainTitle(title.trim());
 }
 
 /** Campo del título de un tablero, con su aviso de título vacío. */
@@ -33,7 +38,7 @@ export function TitleField({
         id={inputId}
         className={styles.input}
         value={value}
-        maxLength={40}
+        maxLength={MAX_TITLE_LENGTH}
         placeholder="Mis metas de este año"
         autoFocus={autoFocus}
         required

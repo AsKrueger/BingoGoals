@@ -1,0 +1,86 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px solid transparent;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.button:disabled {
+  border-color: var(--color-border);
+  background: var(--color-border);
+  color: var(--color-muted);
+  cursor: default;
+}
+
+.medium {
+  min-height: 44px;
+  padding: 8px 18px;
+  border-radius: 22px;
+}
+
+.large {
+  min-height: 52px;
+  padding: 12px 24px;
+  border-radius: 26px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.secondary {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+
+.secondary[aria-pressed='true'] {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.dashed {
+  border-style: dashed;
+  border-color: var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.inverse {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #6200ee;
+}
+
+.inverseOutline {
+  border-color: rgb(255 255 255 / 70%);
+  background: transparent;
+  color: #ffffff;
+}
+
+.inverse:focus-visible,
+.inverseOutline:focus-visible {
+  outline-color: #ffffff;
+}

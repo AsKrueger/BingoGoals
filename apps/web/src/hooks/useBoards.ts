@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import {
   activateBoard,
   activeBoard,
@@ -19,68 +19,83 @@ import {
   type BingoSize,
   type BingoTheme,
   type BingoWin,
-} from '../domain';
+} from '@bingogoals/domain';
+import type { BoardStore } from '../store/boardStore';
 import type { AppData } from '../storage/storage';
 
-/**
- * Lleva los tableros, cuál está activo, el historial de archivados y la
- * celebración pendiente. Parte de los datos cargados del dispositivo y expone
- * en `data` lo que hay que volver a guardar.
- */
-export function useBoards(initialData: AppData) {
-  const [collection, setCollection] = useState(initialData.collection);
-  const [history, setHistory] = useState(initialData.history);
-  const [win, setWin] = useState<BingoWin>('none');
-  const board = activeBoard(collection);
-  const data = useMemo<AppData>(
-    () => ({ collection, history }),
-    [collection, history],
-  );
+/** Aplica un cambio al tablero activo, si lo hay. */
+function changeActive(change: (board: BingoBoard) => BingoBoard) {
+  return (data: AppData): AppData => {
+    const current = activeBoard(data.collection);
+    return current
+      ? { ...data, collection: replaceBoard(data.collection, change(current)) }
+      : data;
+  };
+}
 
-  function changeActive(change: (board: BingoBoard) => BingoBoard) {
-    if (board) {
-      setCollection(replaceBoard(collection, change(board)));
-    }
-  }
+/**
+ * Los tableros que muestran las pantallas y las acciones sobre ellos. El
+ * estado vive en el almacén de tableros; aquí solo se lee y se pide cambiar.
+ * Cada cambio parte del estado más reciente del almacén, no del último render.
+ */
+export function useBoards(store: BoardStore) {
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const [win, setWin] = useState<BingoWin>('none');
+  const { collection, history } = snapshot.data;
 
   return {
     boards: collection.boards,
-    board,
+    board: activeBoard(collection),
     history,
     win,
-    data,
+    saveError: snapshot.saveError,
+    retrySave: store.retrySave,
 
     create(title: string, size: BingoSize) {
-      setCollection(addBoard(collection, createBoard(title, size)));
+      store.update((data) => ({
+        ...data,
+        collection: addBoard(data.collection, createBoard(title, size)),
+      }));
       setWin('none');
     },
     remove(boardId: string) {
-      setCollection(removeBoard(collection, boardId));
+      store.update((data) => ({
+        ...data,
+        collection: removeBoard(data.collection, boardId),
+      }));
       setWin('none');
     },
     activate(boardId: string) {
-      setCollection(activateBoard(collection, boardId));
+      store.update((data) => ({
+        ...data,
+        collection: activateBoard(data.collection, boardId),
+      }));
       setWin('none');
     },
 
     toggle(index: number) {
-      if (board) {
-        const after = toggleCell(board, index);
-        setCollection(replaceBoard(collection, after));
-        setWin(newWin(board, after));
+      const before = activeBoard(store.getSnapshot().data.collection);
+      if (!before) {
+        return;
       }
+      const after = toggleCell(before, index);
+      store.update((data) => ({
+        ...data,
+        collection: replaceBoard(data.collection, after),
+      }));
+      setWin(newWin(before, after));
     },
     update(index: number, changes: BingoCellChanges) {
-      changeActive((current) => updateCell(current, index, changes));
+      store.update(changeActive((board) => updateCell(board, index, changes)));
     },
     setTheme(theme: BingoTheme) {
-      changeActive((current) => updateStyle(current, { theme }));
+      store.update(changeActive((board) => updateStyle(board, { theme })));
     },
     rename(title: string) {
-      changeActive((current) => renameBoard(current, title));
+      store.update(changeActive((board) => renameBoard(board, title)));
     },
     reset() {
-      changeActive(resetBoard);
+      store.update(changeActive(resetBoard));
       setWin('none');
     },
     dismissWin() {
@@ -89,14 +104,22 @@ export function useBoards(initialData: AppData) {
 
     /** Mueve el tablero activo de la colección al historial. */
     archive() {
-      if (board) {
-        setHistory(archiveBoard(history, board));
-        setCollection(removeBoard(collection, board.id));
-        setWin('none');
-      }
+      store.update((data) => {
+        const current = activeBoard(data.collection);
+        return current
+          ? {
+              collection: removeBoard(data.collection, current.id),
+              history: archiveBoard(data.history, current),
+            }
+          : data;
+      });
+      setWin('none');
     },
     removeArchived(boardId: string) {
-      setHistory(removeFromHistory(history, boardId));
+      store.update((data) => ({
+        ...data,
+        history: removeFromHistory(data.history, boardId),
+      }));
     },
   };
 }

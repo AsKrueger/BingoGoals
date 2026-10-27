@@ -9,28 +9,37 @@ import {
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { AppLoader } from './AppLoader';
 import {
+  copiesOf,
   createMemoryStorage,
   type MemoryStorage,
 } from './storage/memoryStorage';
-import { STORAGE_VERSION, toStoredData } from './storage/schema';
+import { RECORD_VERSION, toStoredData } from './storage/schema';
+import storedV1 from './storage/fixtures/stored-v1.json';
 import { sampleData } from './storage/testData';
 import {
   archiveActiveBoard,
   button,
+  fakeAccountServices,
   heading,
   mark,
   submitCreateForm,
 } from './test/helpers';
 
-vi.mock('./photos', () => ({
-  resizePhoto: vi.fn(async () => 'data:image/jpeg;base64,REDUCIDA'),
+vi.mock('./photos', async (original) => ({
+  ...(await original<typeof import('./photos')>()),
+  resizePhoto: vi.fn(async () => ({
+    type: 'image/jpeg',
+    bytes: new Uint8Array([0xff, 0xd8, 0xff]).buffer,
+  })),
 }));
 
 afterEach(cleanup);
 
 /** Abre la web y espera a que termine la carga inicial. */
 async function open(storage: MemoryStorage) {
-  render(<AppLoader storage={storage} />);
+  render(
+    <AppLoader storage={storage} accountServices={fakeAccountServices()} />,
+  );
   await waitFor(() => expect(screen.queryByText(/Cargando/)).toBeNull());
 }
 
@@ -48,7 +57,12 @@ function isPressed(name: string) {
 
 describe('carga inicial', () => {
   test('muestra un estado de carga hasta tener los datos', async () => {
-    render(<AppLoader storage={createMemoryStorage()} />);
+    render(
+      <AppLoader
+        storage={createMemoryStorage()}
+        accountServices={fakeAccountServices()}
+      />,
+    );
 
     expect(screen.getByRole('status').textContent).toContain(
       'Cargando tus tableros…',
@@ -77,7 +91,7 @@ describe('carga inicial', () => {
 
   test.each([
     ['corruptos', 'esto no son datos'],
-    ['a medias', { version: STORAGE_VERSION, collection: { boards: 3 } }],
+    ['a medias', { version: RECORD_VERSION, collection: { boards: 3 } }],
     [
       'de una versión desconocida',
       { ...toStoredData(sampleData()), version: 99 },
@@ -87,6 +101,27 @@ describe('carga inicial', () => {
 
     expect(heading('BingoGoals')).toBeTruthy();
     expect(button('Empezar ahora')).toBeTruthy();
+  });
+
+  test('si el almacenamiento no responde, arranca vacía tras un tiempo y avisa', async () => {
+    const storage = createMemoryStorage();
+    // Una carga que no termina nunca, ni bien ni mal.
+    storage.load = () => new Promise(() => {});
+
+    render(
+      <AppLoader
+        storage={storage}
+        accountServices={fakeAccountServices()}
+        timeoutMs={50}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'BingoGoals' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain(
+      'No se han podido leer los datos guardados',
+    );
   });
 
   test('si no se puede leer el almacenamiento arranca vacía y avisa', async () => {
@@ -131,10 +166,9 @@ describe('carga inicial', () => {
     fireEvent.click(button('Empezar ahora'));
     submitCreateForm('Metas', '3x3');
 
-    await waitFor(() =>
-      expect(storage.raw).toMatchObject({ version: STORAGE_VERSION }),
-    );
-    expect(storage.unreadableCopies).toEqual([raw]);
+    await waitFor(() => expect(storage.records.size).toBe(1));
+    expect(await copiesOf(storage)).toEqual([raw]);
+    expect(storage.legacy()).toBeUndefined();
   });
 
   test('con datos legibles no se hacen copias', async () => {
@@ -143,10 +177,14 @@ describe('carga inicial', () => {
 
     mark(1);
     await waitFor(() =>
-      expect(storage.raw).not.toEqual(toStoredData(sampleData())),
+      expect(
+        [...storage.records.values()].some(
+          (record) => (record as { pending: boolean }).pending,
+        ),
+      ).toBe(true),
     );
 
-    expect(storage.unreadableCopies).toEqual([]);
+    expect(await copiesOf(storage)).toEqual([]);
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -164,12 +202,57 @@ describe('carga inicial', () => {
     await Promise.resolve();
 
     // Unos datos de una versión más nueva no se pisan solo por abrir la web.
-    expect(storage.raw).toBe(raw);
+    expect(storage.legacy()).toBe(raw);
+    expect(storage.records.size).toBe(0);
+  });
+});
+
+describe('datos de la versión 1', () => {
+  test('los tableros siguen ahí, sin aviso', async () => {
+    await open(createMemoryStorage(structuredClone(storedV1)));
+
+    expect(heading('Segundo')).toBeTruthy();
+    expect(screen.getByText('2 de 25 conseguidos')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    fireEvent.click(button('Mis tableros'));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    fireEvent.click(button('Abrir Primero'));
+    expect(heading('Primero').closest('[data-theme]')).toHaveProperty(
+      'dataset.theme',
+      'sakura',
+    );
+    // La foto, que iba dentro del tablero, ahora se guarda aparte.
+    await waitFor(() =>
+      expect(button('Correr 10 km').style.backgroundImage).toContain('blob:'),
+    );
+  });
+
+  test('el historial también se conserva', async () => {
+    await open(createMemoryStorage(structuredClone(storedV1)));
+
+    fireEvent.click(button('Historial'));
+
+    expect(button('Ver Archivado')).toBeTruthy();
+  });
+
+  test('al abrir la web quedan guardados en la versión actual, sin copias', async () => {
+    const storage = createMemoryStorage(structuredClone(storedV1));
+
+    await open(storage);
+
+    // Un registro por tablero y nada del formato antiguo.
+    expect(storage.legacy()).toBeUndefined();
+    expect(storage.records.size).toBe(3);
+    expect(JSON.stringify([...storage.records.values()])).not.toMatch(
+      /primaryColor|fontFamily/,
+    );
+    expect(await copiesOf(storage)).toEqual([]);
   });
 });
 
 describe('guardado automático', () => {
-  test('los datos guardados llevan número de versión', async () => {
+  test('cada tablero se guarda en su propio registro', async () => {
     const storage = createMemoryStorage();
     await open(storage);
 
@@ -177,11 +260,17 @@ describe('guardado automático', () => {
     submitCreateForm('Metas', '3x3');
 
     await waitFor(() =>
-      expect(storage.raw).toMatchObject({
-        version: STORAGE_VERSION,
-        collection: { boards: [{ title: 'Metas', size: '3x3' }] },
-        history: [],
-      }),
+      expect([...storage.records.values()]).toEqual([
+        expect.objectContaining({
+          board: expect.objectContaining({ title: 'Metas', size: '3x3' }),
+          archivedAt: null,
+          deletedAt: null,
+        }),
+      ]),
+    );
+    expect(storage.activeBoardId()).toBe(
+      (storage.records.values().next().value as { board: { id: string } }).board
+        .id,
     );
   });
 
@@ -243,9 +332,10 @@ describe('guardado automático', () => {
     const edited = button('Correr 10 km');
     expect(edited.textContent).toContain('🏋️');
     expect(edited.style.getPropertyValue('--cell-color')).toBe('#2196F3');
-    expect(button('Objetivo 2').style.backgroundImage).toContain(
-      'data:image/jpeg;base64,REDUCIDA',
+    await waitFor(() =>
+      expect(button('Objetivo 2').style.backgroundImage).toContain('blob:'),
     );
+    expect(storage.storedPhotos.size).toBe(1);
   });
 
   test('el tema de cada tablero sigue al recargar', async () => {
@@ -303,7 +393,7 @@ describe('error al guardar', () => {
     await open(storage);
     fireEvent.click(button('Empezar ahora'));
     submitCreateForm('Metas', '3x3');
-    await waitFor(() => expect(storage.raw).toBeDefined());
+    await waitFor(() => expect(storage.records.size).toBe(1));
 
     storage.failOnSave = true;
     mark(1);

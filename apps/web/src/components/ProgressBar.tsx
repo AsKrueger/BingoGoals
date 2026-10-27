@@ -1,4 +1,4 @@
-import type { BingoProgress } from '../domain';
+import type { BingoProgress } from '@bingogoals/domain';
 import styles from './ProgressBar.module.css';
 
 interface ProgressBarProps {

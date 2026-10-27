@@ -1,37 +1,55 @@
 import {
-  BINGO_SIZES,
-  BINGO_THEMES,
-  boardDimension,
+  isArrayOf,
+  isBingoBoard,
+  isDateString,
+  isRecord,
   type ArchivedBoard,
-  type BingoBoard,
-  type BingoCell,
-  type BingoSize,
-  type BingoStyle,
-  type BingoTheme,
   type BoardCollection,
-} from '../domain';
-import type { AppData, LoadResult } from './storage';
+} from '@bingogoals/domain';
+import { migrateStoredData } from './migrations';
+import { createPhotoExtraction } from './photoMigration';
+import type { AppData, StoredPhoto } from './storage';
+
+// Formato de las versiones 1 y 2: todos los datos en un único registro. La
+// versión 3 guarda un registro por tablero y la 4, las fotos aparte (ver
+// storage.ts); esto solo sirve para leer lo guardado antes y migrarlo.
+//
+// Al leerlo, las fotos incrustadas en las casillas (`imagePath`) se sacan
+// aparte, así que lo que se valida ya lleva `photoId`, como en la versión 4.
 
 /**
- * Versión del formato de los datos guardados. Súbela cuando cambie el formato
- * y añade aquí la migración desde la versión anterior.
+ * Última versión del formato de un único registro.
+ *
+ * - 1: formato inicial.
+ * - 2: el estilo solo guarda el tema y cada tablero lleva `updatedAt`.
  */
-export const STORAGE_VERSION = 1;
+export const RECORD_VERSION = 2;
+
+/** Resultado de leer el registro único de las versiones 1 y 2. */
+export type LegacyReadResult =
+  | { readonly status: 'empty' }
+  | {
+      readonly status: 'loaded';
+      readonly data: AppData;
+      /** Las fotos que iban incrustadas en las casillas. */
+      readonly photos: StoredPhoto[];
+    }
+  | { readonly status: 'unreadable' };
 
 export interface StoredData extends AppData {
   readonly version: number;
 }
 
 export function toStoredData(data: AppData): StoredData {
-  return { version: STORAGE_VERSION, ...data };
+  return { version: RECORD_VERSION, ...data };
 }
 
 /**
- * Valida lo leído del dispositivo. Devuelve null si está corrupto o es de una
- * versión desconocida.
+ * Valida un registro con el formato de la versión actual. Devuelve null si
+ * está corrupto o es de otra versión.
  */
 export function parseStoredData(raw: unknown): AppData | null {
-  if (!isRecord(raw) || raw.version !== STORAGE_VERSION) {
+  if (!isRecord(raw) || raw.version !== RECORD_VERSION) {
     return null;
   }
   const { collection, history } = raw;
@@ -41,92 +59,58 @@ export function parseStoredData(raw: unknown): AppData | null {
   return { collection, history };
 }
 
+/** true si el registro es de una versión anterior que hay que migrar. */
+export function isOlderVersion(raw: unknown): boolean {
+  return (
+    isRecord(raw) &&
+    typeof raw.version === 'number' &&
+    raw.version < RECORD_VERSION
+  );
+}
+
 /**
- * Clasifica el registro leído del dispositivo. Que no haya registro (primera
- * visita) no es lo mismo que haya uno que no se sabe leer.
+ * Clasifica el registro leído del dispositivo, migrándolo antes si es de una
+ * versión anterior. Que no haya registro (primera visita) no es lo mismo que
+ * haya uno que no se sabe leer.
  */
-export function readStoredData(raw: unknown): LoadResult {
+export function readLegacyRecord(
+  raw: unknown,
+  now: Date = new Date(),
+): LegacyReadResult {
   if (raw === undefined) {
     return { status: 'empty' };
   }
-  const data = parseStoredData(raw);
-  return data ? { status: 'loaded', data } : { status: 'unreadable' };
-}
-
-type UnknownRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isArrayOf<T>(
-  value: unknown,
-  isItem: (item: unknown) => item is T,
-): value is T[] {
-  return Array.isArray(value) && value.every(isItem);
-}
-
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === 'string';
-}
-
-/**
- * Las fotos se guardan como URL de datos de imagen. No se admite otra cosa:
- * este valor acaba en un `url()` de CSS, y una dirección externa o un texto
- * manipulado no deben llegar ahí.
- */
-const IMAGE_DATA_URL =
-  /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/;
-
-function isNullableImage(value: unknown): value is string | null {
-  return (
-    value === null || (typeof value === 'string' && IMAGE_DATA_URL.test(value))
+  const extraction = createPhotoExtraction(now);
+  const data = parseStoredData(
+    mapBoards(migrateStoredData(raw), extraction.board),
   );
+  return data
+    ? { status: 'loaded', data, photos: extraction.photos }
+    : { status: 'unreadable' };
 }
 
-function isDate(value: unknown): value is string {
-  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
-}
-
-function isCell(value: unknown): value is BingoCell {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.text === 'string' &&
-    typeof value.isCompleted === 'boolean' &&
-    typeof value.isCentralStar === 'boolean' &&
-    isNullableString(value.icon) &&
-    isNullableImage(value.imagePath) &&
-    isNullableString(value.color)
-  );
-}
-
-function isStyle(value: unknown): value is BingoStyle {
-  return (
-    isRecord(value) &&
-    BINGO_THEMES.includes(value.theme as BingoTheme) &&
-    typeof value.primaryColor === 'string' &&
-    typeof value.fontFamily === 'string'
-  );
-}
-
-function isBoard(value: unknown): value is BingoBoard {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== 'string' ||
-    typeof value.title !== 'string' ||
-    !BINGO_SIZES.includes(value.size as BingoSize) ||
-    !isStyle(value.style) ||
-    !isDate(value.createdAt) ||
-    !isArrayOf(value.cells, isCell)
-  ) {
-    return false;
+/** Aplica `change` a cada tablero de un registro sin validar. */
+function mapBoards(raw: unknown, change: (board: unknown) => unknown): unknown {
+  if (!isRecord(raw)) {
+    return raw;
   }
-  return value.cells.length === boardDimension(value.size as BingoSize) ** 2;
+  const { collection, history } = raw;
+  return {
+    ...raw,
+    collection:
+      isRecord(collection) && Array.isArray(collection.boards)
+        ? { ...collection, boards: collection.boards.map(change) }
+        : collection,
+    history: Array.isArray(history)
+      ? history.map((entry: unknown) =>
+          isRecord(entry) ? { ...entry, board: change(entry.board) } : entry,
+        )
+      : history,
+  };
 }
 
 function isCollection(value: unknown): value is BoardCollection {
-  if (!isRecord(value) || !isArrayOf(value.boards, isBoard)) {
+  if (!isRecord(value) || !isArrayOf(value.boards, isBingoBoard)) {
     return false;
   }
   const { boards, activeBoardId } = value;
@@ -137,5 +121,9 @@ function isCollection(value: unknown): value is BoardCollection {
 }
 
 function isArchivedBoard(value: unknown): value is ArchivedBoard {
-  return isRecord(value) && isBoard(value.board) && isDate(value.archivedAt);
+  return (
+    isRecord(value) &&
+    isBingoBoard(value.board) &&
+    isDateString(value.archivedAt)
+  );
 }

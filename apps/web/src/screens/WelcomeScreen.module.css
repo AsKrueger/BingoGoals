@@ -36,34 +36,8 @@
 }
 
 .start {
-  min-height: 52px;
   margin-top: 12px;
-  padding: 12px 32px;
-  border: 0;
-  border-radius: 26px;
-  background: #ffffff;
-  color: #6200ee;
-  font-weight: 900;
+  padding-inline: 32px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  cursor: pointer;
-}
-
-.start:focus-visible {
-  outline-color: #ffffff;
-}
-
-.history {
-  min-height: 44px;
-  padding: 8px 20px;
-  border: 2px solid rgb(255 255 255 / 70%);
-  border-radius: 22px;
-  background: transparent;
-  color: #ffffff;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.history:focus-visible {
-  outline-color: #ffffff;
 }

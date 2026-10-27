@@ -2,12 +2,18 @@
 import { describe, expect, test } from 'vitest';
 import {
   parseStoredData,
-  readStoredData,
-  STORAGE_VERSION,
+  readLegacyRecord,
+  RECORD_VERSION,
   toStoredData,
 } from './schema';
 import { EMPTY_DATA } from './storage';
-import { sampleData } from './testData';
+import {
+  legacyStoredData,
+  SAMPLE_JPEG,
+  SAMPLE_JPEG_DATA_URL,
+  sampleData,
+  withoutPhotoIds,
+} from './testData';
 
 /** Copia modificable de los datos guardados, para estropearlos en cada test. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,8 +25,8 @@ describe('toStoredData', () => {
   test('añade el número de versión a los datos', () => {
     const data = sampleData();
 
-    expect(toStoredData(data)).toEqual({ version: STORAGE_VERSION, ...data });
-    expect(STORAGE_VERSION).toBe(1);
+    expect(toStoredData(data)).toEqual({ version: RECORD_VERSION, ...data });
+    expect(RECORD_VERSION).toBe(2);
   });
 });
 
@@ -46,7 +52,7 @@ describe('parseStoredData', () => {
     expect(parseStoredData(raw)).toBeNull();
   });
 
-  test.each([0, 2, 99, '1', null, undefined])(
+  test.each([0, 3, 99, '2', null, undefined])(
     'rechaza la versión desconocida %s',
     (version) => {
       expect(parseStoredData({ ...stored(), version })).toBeNull();
@@ -84,8 +90,8 @@ describe('parseStoredData', () => {
       (data) => (data.collection.boards[0].cells[2].isCompleted = 'sí'),
     ],
     [
-      'la foto de una casilla no es un texto',
-      (data) => (data.collection.boards[0].cells[2].imagePath = 123),
+      'la foto de una casilla no es un identificador',
+      (data) => (data.collection.boards[0].cells[2].photoId = 123),
     ],
     [
       'el tema no existe',
@@ -111,28 +117,41 @@ describe('parseStoredData', () => {
   });
 });
 
-// Hallazgo 5 de la revisión de la fase 1.
-describe('foto de una casilla', () => {
+// Hallazgo 5 de la revisión de la fase 1. Desde la versión 4, las fotos
+// incrustadas se sacan aparte al leer el registro.
+describe('fotos incrustadas en las casillas', () => {
   function withPhoto(imagePath: unknown) {
-    const data = stored();
+    const data = legacyStoredData();
     data.collection.boards[0].cells[2].imagePath = imagePath;
-    return data;
+    return readLegacyRecord(data);
   }
 
+  test('se sacan aparte y la casilla lleva el identificador', () => {
+    const result = readLegacyRecord(legacyStoredData());
+    if (result.status !== 'loaded') {
+      throw new Error('Se esperaban datos.');
+    }
+
+    const [photo] = result.photos;
+    expect(result.photos).toHaveLength(1);
+    expect(photo).toMatchObject({ type: 'image/jpeg', uploadedBy: null });
+    expect(new Uint8Array(photo!.bytes)).toEqual(SAMPLE_JPEG);
+    expect(result.data.collection.boards[0]?.cells[0]?.photoId).toBe(photo?.id);
+  });
+
   test.each([
-    'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+    SAMPLE_JPEG_DATA_URL,
     'data:image/png;base64,iVBORw0KGgo=',
     'data:image/webp;base64,UklGRg==',
-    'data:image/gif;base64,R0lGODlh',
   ])('admite la URL de datos de imagen %s', (imagePath) => {
-    expect(parseStoredData(withPhoto(imagePath))).not.toBeNull();
-  });
+    const result = withPhoto(imagePath);
 
-  test('admite una casilla sin foto', () => {
-    expect(parseStoredData(withPhoto(null))).not.toBeNull();
+    expect(result.status === 'loaded' && result.photos).toHaveLength(2);
   });
 
   test.each([
+    ['una casilla sin foto', null],
+    ['un GIF', 'data:image/gif;base64,R0lGODlh'],
     ['una dirección externa', 'https://example.com/foto.png'],
     ['una ruta de archivo', 'foto.jpg'],
     ['un texto vacío', ''],
@@ -144,32 +163,52 @@ describe('foto de una casilla', () => {
       'data:image/png;base64,AAAA"), url("https://example.com/x',
     ],
     ['un script', 'javascript:alert(1)'],
-  ])('rechaza %s', (_, imagePath) => {
-    expect(parseStoredData(withPhoto(imagePath))).toBeNull();
-  });
+  ])(
+    'con %s, la casilla se queda sin foto y el resto se lee',
+    (_, imagePath) => {
+      const result = withPhoto(imagePath);
+      if (result.status !== 'loaded') {
+        throw new Error('Se esperaban datos.');
+      }
+
+      expect(result.photos).toHaveLength(1);
+      expect(result.data.collection.boards[0]?.cells[2]?.photoId).toBeNull();
+    },
+  );
 });
 
 // Hallazgo 1 de la revisión de la fase 1.
-describe('readStoredData', () => {
+describe('readLegacyRecord', () => {
   test('sin registro, no hay datos', () => {
-    expect(readStoredData(undefined)).toEqual({ status: 'empty' });
+    expect(readLegacyRecord(undefined)).toEqual({ status: 'empty' });
   });
 
-  test('con un registro válido, devuelve los datos', () => {
+  test('con un registro válido, devuelve los datos y sus fotos', () => {
     const data = sampleData();
 
-    expect(readStoredData(structuredClone(toStoredData(data)))).toEqual({
-      status: 'loaded',
-      data,
-    });
+    const result = readLegacyRecord(legacyStoredData(data));
+    if (result.status !== 'loaded') {
+      throw new Error('Se esperaban datos.');
+    }
+
+    expect(result.photos).toHaveLength(1);
+    expect(result.data.collection.activeBoardId).toBe(
+      data.collection.activeBoardId,
+    );
+    expect(result.data.collection.boards.map(withoutPhotoIds)).toEqual(
+      data.collection.boards.map(withoutPhotoIds),
+    );
+    expect(result.data.history.map((entry) => entry.archivedAt)).toEqual(
+      data.history.map((entry) => entry.archivedAt),
+    );
   });
 
   test.each([
     ['null', null],
     ['un texto', 'esto no son datos'],
     ['un objeto vacío', {}],
-    ['una versión más nueva', { ...toStoredData(sampleData()), version: 2 }],
+    ['una versión más nueva', { ...toStoredData(sampleData()), version: 3 }],
   ])('con %s, hay datos pero son ilegibles', (_, raw) => {
-    expect(readStoredData(raw)).toEqual({ status: 'unreadable' });
+    expect(readLegacyRecord(raw)).toEqual({ status: 'unreadable' });
   });
 });

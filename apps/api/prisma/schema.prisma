@@ -1,0 +1,96 @@
+// Esquema de la base de datos de BingoGoals.
+// La conexión se configura en prisma.config.ts, a partir de DATABASE_URL.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  /// Siempre en minúsculas.
+  email        String    @unique
+  /// Contraseña cifrada con scrypt y sal propia; nunca la contraseña.
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  boards       Board[]
+  photos       Photo[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+/// Un tablero de bingo, activo o archivado.
+///
+/// El identificador y las fechas los genera el cliente con el dominio
+/// compartido (`@bingogoals/domain`): la sincronización compara `updatedAt`
+/// para saber qué versión de un tablero es la más reciente.
+model Board {
+  id     String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title String
+  /// «3x3» o «5x5».
+  size  String
+  /// Estilo del tablero: `{ "theme": "classic" }`.
+  style Json
+  /// Lista de casillas. Su forma la valida el dominio compartido.
+  cells Json
+
+  createdAt  DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @map("updated_at") @db.Timestamptz(3)
+  /// Un tablero archivado es el mismo registro, con su fecha de archivo.
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  /// Borrado lógico: el registro se conserva para que el borrado llegue a
+  /// los demás dispositivos. Al borrar, updatedAt pasa a ser esta fecha.
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  /// Hora del servidor del último cambio. Es la que usa GET /boards?since:
+  /// las fechas del cliente no sirven para saber qué ha cambiado desde
+  /// la última consulta, porque cada dispositivo tiene su reloj.
+  syncedAt   DateTime  @default(now()) @updatedAt @map("synced_at") @db.Timestamptz(3)
+
+  @@index([userId, syncedAt])
+  @@map("boards")
+}
+
+/// Foto de una casilla, guardada aparte del tablero: la casilla solo lleva
+/// su identificador (`photoId`). Es inmutable; cambiar la foto de una casilla
+/// crea otra con otro identificador, así que nunca hay conflictos.
+model Photo {
+  id     String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// image/jpeg, image/png o image/webp, según el contenido del archivo.
+  type String
+  data Bytes
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("photos")
+}
+
+/// Una sesión iniciada. El cliente guarda el identificador de sesión; aquí
+/// solo se guarda su resumen, así que una copia de la base de datos no sirve
+/// para suplantar a nadie.
+model Session {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 del identificador de sesión, en hexadecimal.
+  tokenHash String @unique @map("token_hash")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("sessions")
+}

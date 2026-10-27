@@ -11,11 +11,15 @@ import {
   type BingoCellChanges,
   type BingoTheme,
   type BingoWin,
-} from '../domain';
+} from '@bingogoals/domain';
+import { SyncBadge } from '../components/SyncBadge';
+import type { SyncStatus } from '../sync/syncEngine';
 import { THEMES } from '../themes';
 import styles from './BoardScreen.module.css';
+import { Button } from '../components/Button';
 
-export type BoardSection = 'collection' | 'stats' | 'settings' | 'history';
+export type BoardSection =
+  'collection' | 'stats' | 'settings' | 'history' | 'account';
 
 interface BoardScreenProps {
   board: BingoBoard;
@@ -24,6 +28,8 @@ interface BoardScreenProps {
   onUpdate: (index: number, changes: BingoCellChanges) => void;
   onThemeChange: (theme: BingoTheme) => void;
   onDismissWin: () => void;
+  /** Estado de la sincronización, o null sin sesión. */
+  syncStatus?: SyncStatus | null;
   onOpen: (section: BoardSection) => void;
 }
 
@@ -32,6 +38,7 @@ const SECTIONS: { section: BoardSection; label: string; icon: string }[] = [
   { section: 'stats', label: 'Estadísticas', icon: '📊' },
   { section: 'settings', label: 'Ajustes', icon: '⚙️' },
   { section: 'history', label: 'Historial', icon: '🕘' },
+  { section: 'account', label: 'Cuenta', icon: '👤' },
 ];
 
 export function BoardScreen({
@@ -42,6 +49,7 @@ export function BoardScreen({
   onThemeChange,
   onDismissWin,
   onOpen,
+  syncStatus = null,
 }: BoardScreenProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -72,6 +80,7 @@ export function BoardScreen({
           <span className={styles.percentage}>{boardProgress.percentage}%</span>
         </div>
         <ProgressBar label="Progreso del tablero" progress={boardProgress} />
+        {syncStatus && <SyncBadge status={syncStatus} />}
         <p className={styles.progressText}>
           {boardProgress.completed} de {boardProgress.total} conseguidos
         </p>
@@ -84,14 +93,13 @@ export function BoardScreen({
       />
 
       <div className={styles.footer}>
-        <button
-          type="button"
-          className={styles.editToggle}
+        <Button
+          variant="secondary"
           aria-pressed={isEditing}
           onClick={() => setIsEditing(!isEditing)}
         >
           ✏️ Editar casillas
-        </button>
+        </Button>
         <p className={styles.hint}>
           {isEditing
             ? 'Toca una casilla para editarla.'

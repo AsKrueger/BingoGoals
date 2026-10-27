@@ -38,6 +38,23 @@ const withoutAutoFocus = (
   </>
 );
 
+// Un diálogo que empieza y acaba con elementos que no son ni botones ni
+// campos de texto.
+const withOtherControls = (
+  <>
+    <a href="https://example.com/ayuda">Ayuda</a>
+    <select aria-label="Opción">
+      <option>Una</option>
+    </select>
+    <input type="hidden" name="oculto" />
+    <button type="button" disabled>
+      Desactivado
+    </button>
+    <span tabIndex={0}>Enfocable</span>
+    <textarea aria-label="Comentario" />
+  </>
+);
+
 /** Abre el diálogo como lo haría un usuario: con el foco en el botón. */
 function openDialog() {
   const opener = screen.getByRole('button', { name: 'Abrir' });
@@ -106,6 +123,33 @@ describe.each([
 
     fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(last);
+  });
+
+  test('Tab tampoco sale con enlaces, desplegables y áreas de texto', () => {
+    renderHarness(withOtherControls);
+    openDialog();
+    const link = screen.getByRole('link', { name: 'Ayuda' });
+    const textarea = screen.getByLabelText('Comentario');
+
+    // Sin autoFocus, el foco entra en el primer elemento: el enlace.
+    expect(document.activeElement).toBe(link);
+
+    fireEvent.keyDown(link, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(textarea);
+
+    fireEvent.keyDown(textarea, { key: 'Tab' });
+    expect(document.activeElement).toBe(link);
+  });
+
+  test('en medio del diálogo, Tab sigue su curso normal', () => {
+    renderHarness(withOtherControls);
+    openDialog();
+    const select = screen.getByLabelText('Opción');
+    select.focus();
+
+    // El diálogo no interviene: no cancela la tecla ni mueve el foco.
+    expect(fireEvent.keyDown(select, { key: 'Tab' })).toBe(true);
+    expect(document.activeElement).toBe(select);
   });
 
   test('tocar fuera lo cierra; tocar dentro, no', () => {
