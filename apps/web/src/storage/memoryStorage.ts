@@ -1,10 +1,13 @@
 import { fromAppData, isLocalRecord } from './records';
 import { readLegacyRecord } from './schema';
 import {
+  photoInfo,
   type BoardStorage,
   type LoadResult,
   type LocalRecord,
+  type PhotoStorage,
   type StorageChanges,
+  type StoredPhoto,
   type UnreadableCopy,
 } from './storage';
 
@@ -17,8 +20,11 @@ interface Device {
   activeBoardId: string | null;
   syncCursors: Record<string, string>;
   copies: UnreadableCopy[];
+  photos: Map<string, StoredPhoto>;
   /** Cada pestaña, con la función que le entrega los avisos. */
   tabs: Map<MemoryStorage, (changes: StorageChanges) => void>;
+  /** Cada pestaña, con la función que le avisa de las fotos nuevas. */
+  photoTabs: Map<PhotoStorage, (ids: string[]) => void>;
 }
 
 export interface MemoryStorage extends BoardStorage {
@@ -33,6 +39,51 @@ export interface MemoryStorage extends BoardStorage {
   failOnLoad: boolean;
   /** Otra pestaña del mismo dispositivo: comparte los datos y los avisos. */
   openTab(): MemoryStorage;
+  /** Fotos guardadas tal cual, para inspeccionarlas. */
+  readonly storedPhotos: Map<string, StoredPhoto>;
+}
+
+function createPhotoTab(device: Device): PhotoStorage {
+  const listeners = new Set<(ids: string[]) => void>();
+  const photos: PhotoStorage = {
+    get: async (id) => {
+      const photo = device.photos.get(id);
+      return photo && structuredClone(photo);
+    },
+    async put(stored) {
+      for (const photo of stored) {
+        device.photos.set(photo.id, structuredClone(photo));
+      }
+      for (const [other, notify] of device.photoTabs) {
+        if (other !== photos) {
+          notify(stored.map((photo) => photo.id));
+        }
+      }
+    },
+    async markUploaded(id, userId) {
+      const photo = device.photos.get(id);
+      if (photo) {
+        device.photos.set(id, { ...photo, uploadedBy: userId });
+      }
+    },
+    async remove(ids) {
+      for (const id of ids) {
+        device.photos.delete(id);
+      }
+    },
+    ids: async () => [...device.photos.keys()],
+    list: async () => [...device.photos.values()].map(photoInfo),
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  device.photoTabs.set(photos, (ids) => {
+    for (const listener of listeners) {
+      listener(ids);
+    }
+  });
+  return photos;
 }
 
 function createTab(device: Device): MemoryStorage {
@@ -40,6 +91,8 @@ function createTab(device: Device): MemoryStorage {
 
   const tab: MemoryStorage = {
     records: device.records,
+    storedPhotos: device.photos,
+    photos: createPhotoTab(device),
     legacy: () => device.legacy,
     activeBoardId: () => device.activeBoardId,
     failOnSave: false,
@@ -61,6 +114,9 @@ function createTab(device: Device): MemoryStorage {
         const data = fromAppData(legacy.data);
         for (const record of data.records) {
           device.records.set(record.board.id, structuredClone(record));
+        }
+        for (const photo of legacy.photos) {
+          device.photos.set(photo.id, photo);
         }
         device.activeBoardId = data.activeBoardId;
         device.legacy = undefined;
@@ -156,7 +212,9 @@ export function createMemoryStorage(
     activeBoardId: null,
     syncCursors: {},
     copies: [],
+    photos: new Map(),
     tabs: new Map(),
+    photoTabs: new Map(),
   });
 }
 

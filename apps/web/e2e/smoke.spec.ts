@@ -16,7 +16,7 @@ const storedV1: unknown = JSON.parse(
 function storedBoards(page: Page) {
   return page.evaluate(
     () =>
-      new Promise<{ version: unknown; boards: unknown[] }>(
+      new Promise<{ version: unknown; boards: unknown[]; photos: unknown[] }>(
         (resolve, reject) => {
           const open = indexedDB.open('bingogoals');
           open.onerror = () => reject(open.error);
@@ -24,15 +24,24 @@ function storedBoards(page: Page) {
             const database = open.result;
             if (!database.objectStoreNames.contains('boards')) {
               database.close();
-              resolve({ version: undefined, boards: [] });
+              resolve({ version: undefined, boards: [], photos: [] });
               return;
             }
-            const transaction = database.transaction(['boards', 'meta']);
+            const transaction = database.transaction([
+              'boards',
+              'meta',
+              'photos',
+            ]);
             const boards = transaction.objectStore('boards').getAll();
             const version = transaction.objectStore('meta').get('version');
+            const photos = transaction.objectStore('photos').getAllKeys();
             transaction.oncomplete = () => {
               database.close();
-              resolve({ version: version.result, boards: boards.result });
+              resolve({
+                version: version.result,
+                boards: boards.result,
+                photos: photos.result,
+              });
             };
           };
         },
@@ -134,7 +143,7 @@ test('crear un tablero, marcar, abrir un diálogo con el teclado y recargar', as
     .poll(async () => JSON.stringify(await storedBoards(page)))
     .toContain('"theme":"christmas"');
   const saved = await storedBoards(page);
-  expect(saved.version).toBe(3);
+  expect(saved.version).toBe(4);
   expect(saved.boards).toHaveLength(1);
 
   // Recargar: todo sigue igual.
@@ -165,13 +174,15 @@ test('los datos de la versión 1 se migran al abrir la web, sin aviso', async ({
   await expect(page.getByText('2 de 25 conseguidos')).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 
-  // Y ya han quedado guardados en la versión 3, un registro por tablero y
-  // sin los campos antiguos.
-  await expect.poll(async () => (await storedBoards(page)).version).toBe(3);
+  // Y ya han quedado guardados en la versión 4: un registro por tablero, sin
+  // los campos antiguos y con la foto aparte.
+  await expect.poll(async () => (await storedBoards(page)).version).toBe(4);
   const saved = await storedBoards(page);
   expect(saved.boards).toHaveLength(3);
-  const stored = JSON.stringify(saved);
+  expect(saved.photos).toHaveLength(1);
+  const stored = JSON.stringify(saved.boards);
   expect(stored).not.toContain('primaryColor');
+  expect(stored).not.toContain('imagePath');
   expect(stored).toContain('updatedAt');
 
   // El otro tablero conserva su tema, su casilla personalizada y su foto.
@@ -184,7 +195,7 @@ test('los datos de la versión 1 se migran al abrir la web, sin aviso', async ({
   );
   const customCell = page.getByRole('button', { name: 'Correr 10 km' });
   await expect(customCell).toHaveAttribute('aria-pressed', 'true');
-  await expect(customCell).toHaveCSS('background-image', /data:image\/jpeg/);
+  await expect(customCell).toHaveCSS('background-image', /blob:/);
 
   // El historial también.
   await page.getByRole('button', { name: 'Historial' }).click();

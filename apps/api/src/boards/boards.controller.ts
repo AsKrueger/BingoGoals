@@ -36,7 +36,7 @@ function valid<T>(result: ParseResult<T>): T {
 }
 
 /** Traduce el resultado de una escritura a la respuesta HTTP. */
-function respond(result: WriteResult): void {
+function respond(result: WriteResult): { missingPhotos: string[] } {
   if (result.status === 'not-found') {
     // Un tablero de otro usuario se trata como si no existiera.
     throw new NotFoundException({ message: 'El tablero no existe.' });
@@ -47,6 +47,7 @@ function respond(result: WriteResult): void {
       current: result.current,
     });
   }
+  return { missingPhotos: result.missingPhotos };
 }
 
 /**
@@ -68,18 +69,19 @@ export class BoardsController {
   }
 
   /**
-   * Crea o sustituye un tablero. Responde 409 con la versión guardada si esa
-   * es más reciente.
+   * Crea o sustituye un tablero. Responde con las fotos de sus casillas que
+   * el servidor no tiene, para que el dispositivo las suba, o 409 con la
+   * versión guardada si esa es más reciente.
    */
   @Put(':id')
-  @HttpCode(204)
+  @HttpCode(200)
   async put(
     @CurrentSession() session: ActiveSession,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: unknown,
-  ): Promise<void> {
+  ): Promise<{ missingPhotos: string[] }> {
     const { board, archivedAt } = valid(parseBoardUpload(id, body));
-    respond(await this.boards.put(session.user.id, board, archivedAt));
+    return respond(await this.boards.put(session.user.id, board, archivedAt));
   }
 
   /**

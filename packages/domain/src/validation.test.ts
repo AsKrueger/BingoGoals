@@ -20,7 +20,7 @@ function board(size: '3x3' | '5x5' = '3x3'): any {
     text: 'Correr 10 km',
     icon: '🏋️',
     color: '#2196F3',
-    imagePath: 'data:image/jpeg;base64,AAAA',
+    photoId: '0b7c8f3e-5a2d-4c1b-9e6f-1a2b3c4d5e6f',
   });
   return structuredClone(toggleCell(valid, 0));
 }
@@ -107,17 +107,14 @@ describe('isBingoCell', () => {
 });
 
 describe('foto de una casilla', () => {
-  function cellWithPhoto(imagePath: unknown) {
-    return { ...board().cells[0], imagePath };
+  function cellWithPhoto(photoId: unknown) {
+    return { ...board().cells[0], photoId };
   }
 
-  test.each([
-    'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
-    'data:image/png;base64,iVBORw0KGgo=',
-    'data:image/webp;base64,UklGRg==',
-    'data:image/gif;base64,R0lGODlh',
-  ])('admite la URL de datos de imagen %s', (imagePath) => {
-    expect(isBingoCell(cellWithPhoto(imagePath))).toBe(true);
+  test('admite el identificador de una foto', () => {
+    expect(
+      isBingoCell(cellWithPhoto('0B7C8F3E-5A2D-4C1B-9E6F-1A2B3C4D5E6F')),
+    ).toBe(true);
   });
 
   test('admite una casilla sin foto', () => {
@@ -129,16 +126,17 @@ describe('foto de una casilla', () => {
     ['una ruta de archivo', 'foto.jpg'],
     ['un texto vacío', ''],
     ['un número', 123],
-    ['una URL de datos que no es imagen', 'data:text/html;base64,PGI+'],
-    ['una imagen SVG', 'data:image/svg+xml;base64,PHN2Zz4='],
-    ['una URL de datos sin base64', 'data:image/png,abc'],
     [
-      'un texto que intenta salirse del url() de CSS',
-      'data:image/png;base64,AAAA"), url("https://example.com/x',
+      'la foto incrustada de las versiones anteriores',
+      'data:image/jpeg;base64,AAAA',
+    ],
+    [
+      'un identificador con una ruta',
+      '../0b7c8f3e-5a2d-4c1b-9e6f-1a2b3c4d5e6f',
     ],
     ['un script', 'javascript:alert(1)'],
-  ])('rechaza %s', (_, imagePath) => {
-    expect(isBingoCell(cellWithPhoto(imagePath))).toBe(false);
+  ])('rechaza %s', (_, photoId) => {
+    expect(isBingoCell(cellWithPhoto(photoId))).toBe(false);
   });
 });
 

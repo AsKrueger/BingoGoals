@@ -7,13 +7,18 @@ import {
   renameBoard,
   replaceBoard,
   toggleCell,
+  updateCell,
   type BingoBoard,
 } from '@bingogoals/domain';
 import { describe, expect, test, vi } from 'vitest';
 import { createFakeAccountApi, type FakeAccountApi } from '../account/fakeApi';
-import { createMemoryStorage } from '../storage/memoryStorage';
+import {
+  createMemoryStorage,
+  type MemoryStorage,
+} from '../storage/memoryStorage';
 import { EMPTY_LOCAL_DATA } from '../storage/storage';
 import { createBoardStore, type BoardStore } from '../store/boardStore';
+import { createPhotoStore, type PhotoStore } from '../store/photoStore';
 import { createFakeBoardsApi, type FakeBoardsApi } from './fakeBoardsApi';
 import { createSyncEngine, type SyncEngine } from './syncEngine';
 
@@ -399,5 +404,203 @@ describe('sin conexión y reintentos', () => {
 
     expect(a.onUnauthorized).toHaveBeenCalledOnce();
     expect(a.engine.getStatus()).toBe('error');
+  });
+});
+
+describe('fotos', () => {
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]);
+  const T1 = new Date('2026-10-20T10:00:00Z');
+  const T2 = new Date('2026-10-20T11:00:00Z');
+
+  interface PhotoDevice extends Device {
+    photos: PhotoStore;
+    storage: MemoryStorage;
+  }
+
+  /** Un dispositivo que también sincroniza las fotos. */
+  function photoDevice(
+    { boards }: Server,
+    userId: string,
+    token: string,
+  ): PhotoDevice {
+    const storage = createMemoryStorage();
+    const store = createBoardStore(storage, EMPTY_LOCAL_DATA);
+    const photos = createPhotoStore(storage.photos, { toUrl: (p) => p.id });
+    const clock = manualTimers();
+    store.setViewer(userId);
+    const engine = createSyncEngine({
+      store,
+      photos,
+      api: boards,
+      userId,
+      getToken: () => token,
+      timers: clock.timers,
+    });
+    return {
+      store,
+      engine,
+      clock,
+      onUnauthorized: vi.fn(),
+      online: { value: true },
+      photos,
+      storage,
+    };
+  }
+
+  /** Crea un tablero con una foto nueva en la primera casilla. */
+  async function withPhoto(device: PhotoDevice, title = 'Metas') {
+    const photoId = await device.photos.add({
+      type: 'image/jpeg',
+      bytes: JPEG.slice().buffer,
+    });
+    const board = updateCell(
+      create(device.store, title, T1),
+      0,
+      { photoId },
+      T1,
+    );
+    change(device.store, board);
+    return { board, photoId };
+  }
+
+  test('la foto de un tablero llega al servidor y al otro dispositivo', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const b = photoDevice(api, userId, token);
+    const { photoId } = await withPhoto(a);
+
+    await a.engine.syncNow();
+    await b.engine.syncNow();
+
+    expect(api.boards.photos(userId).has(photoId)).toBe(true);
+    const received = await b.photos.get(photoId);
+    expect(new Uint8Array(received!.bytes)).toEqual(JPEG);
+    expect(received?.uploadedBy).toBe(userId);
+    expect(b.photos.url(photoId)).toBe(photoId);
+  });
+
+  test('la foto se sube antes que el tablero', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const order: string[] = [];
+    const putPhoto = api.boards.putPhoto;
+    const put = api.boards.put;
+    api.boards.putPhoto = (...args) => {
+      order.push('foto');
+      return putPhoto(...args);
+    };
+    api.boards.put = (...args) => {
+      order.push('tablero');
+      return put(...args);
+    };
+    await withPhoto(a);
+
+    await a.engine.syncNow();
+
+    expect(order).toEqual(['foto', 'tablero']);
+  });
+
+  test('una foto ya subida no se vuelve a subir al cambiar el tablero', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const { board, photoId } = await withPhoto(a);
+    await a.engine.syncNow();
+
+    change(a.store, toggleCell(board, 1, T2));
+    await a.engine.syncNow();
+
+    expect(api.boards.calls.putPhoto).toBe(1);
+    expect((await a.photos.get(photoId))?.uploadedBy).toBe(userId);
+  });
+
+  test('si el servidor ya no tiene una foto subida, se vuelve a subir', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const { board, photoId } = await withPhoto(a);
+    await a.engine.syncNow();
+    api.boards.photos(userId).delete(photoId);
+
+    change(a.store, toggleCell(board, 1, T2));
+    await a.engine.syncNow();
+
+    expect(api.boards.photos(userId).has(photoId)).toBe(true);
+  });
+
+  test('una foto que el servidor no tiene se deja de pedir y la casilla queda sin ella', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const b = photoDevice(api, userId, token);
+    const { photoId } = await withPhoto(a);
+    await a.photos.markUploaded(photoId, userId); // Como si ya estuviera subida.
+    await a.engine.syncNow();
+    api.boards.photos(userId).clear();
+
+    await b.engine.syncNow();
+    await b.engine.syncNow();
+
+    expect(api.boards.calls.getPhoto).toBe(1);
+    expect(await b.photos.get(photoId)).toBeUndefined();
+    expect(b.engine.getStatus()).toBe('synced');
+  });
+
+  test('una foto que el servidor rechaza no impide subir el tablero', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const photoId = await a.photos.add({
+      type: 'image/jpeg',
+      bytes: new TextEncoder().encode('no es una foto').buffer,
+    });
+    change(a.store, updateCell(create(a.store, 'Metas'), 0, { photoId }));
+
+    await a.engine.syncNow();
+
+    expect(api.boards.stored(userId)).toHaveLength(1);
+    expect(a.engine.getStatus()).toBe('synced');
+  });
+
+  test('sin conexión, la foto queda pendiente y se sube al reconectar', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const { photoId } = await withPhoto(a);
+    api.accounts.isDown = true;
+
+    await a.engine.syncNow();
+    expect(a.engine.getStatus()).not.toBe('synced');
+    api.accounts.isDown = false;
+    await a.engine.syncNow();
+
+    expect(api.boards.photos(userId).has(photoId)).toBe(true);
+    expect(a.engine.getStatus()).toBe('synced');
+  });
+
+  test('cambiar la foto en A: B recibe la nueva y el servidor borra la anterior', async () => {
+    const api = server();
+    const { userId, token } = await account(api);
+    const a = photoDevice(api, userId, token);
+    const b = photoDevice(api, userId, token);
+    const { board } = await withPhoto(a);
+    await a.engine.syncNow();
+    await b.engine.syncNow();
+
+    const second = await a.photos.add({
+      type: 'image/jpeg',
+      bytes: JPEG.slice().buffer,
+    });
+    change(a.store, updateCell(board, 0, { photoId: second }, T2));
+    await a.engine.syncNow();
+    await b.engine.syncNow();
+
+    expect([...api.boards.photos(userId).keys()]).toEqual([second]);
+    expect(b.photos.url(second)).toBe(second);
+    expect(
+      b.store.getSnapshot().data.collection.boards[0]?.cells[0]?.photoId,
+    ).toBe(second);
   });
 });

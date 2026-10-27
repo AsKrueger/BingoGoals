@@ -1,5 +1,7 @@
+import { photoIdsOf } from '@bingogoals/domain';
 import { ApiError, NetworkError } from '../api/http';
 import type { BoardStore } from '../store/boardStore';
+import type { PhotoStore } from '../store/photoStore';
 import type { BoardsApi } from './boardsApi';
 
 export type SyncStatus =
@@ -38,6 +40,8 @@ interface Timers {
 
 export interface SyncOptions {
   store: BoardStore;
+  /** Las fotos de las casillas. Sin él, solo se sincronizan los tableros. */
+  photos?: PhotoStore;
   api: BoardsApi;
   userId: string;
   /** Identificador de la sesión actual, o null si ya no hay sesión. */
@@ -56,13 +60,22 @@ export interface SyncOptions {
 
 const DEFAULT_BACKOFF = [2_000, 5_000, 15_000, 30_000, 60_000];
 
+/** El servidor no admite esa foto: ni se reintenta ni detiene lo demás. */
+function isRejectedPhoto(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.status === 400 || error.status === 409 || error.status === 413)
+  );
+}
+
 /**
- * Sincroniza los tableros de una cuenta. Primero el dispositivo: cada cambio
- * ya está guardado en local, y aquí solo se envía y se recibe en segundo
- * plano. Ante dos versiones de un tablero gana la más reciente.
+ * Sincroniza los tableros de una cuenta, y sus fotos. Primero el dispositivo:
+ * cada cambio ya está guardado en local, y aquí solo se envía y se recibe en
+ * segundo plano. Ante dos versiones de un tablero gana la más reciente.
  */
 export function createSyncEngine({
   store,
+  photos,
   api,
   userId,
   getToken,
@@ -88,6 +101,8 @@ export function createSyncEngine({
   let retryTimer: unknown = null;
   let debounceTimer: unknown = null;
   let pollTimer: unknown = null;
+  /** Fotos que el servidor no tiene: no se vuelven a pedir hasta reiniciar. */
+  const unavailablePhotos = new Set<string>();
   const cleanups: (() => void)[] = [];
   const listeners = new Set<() => void>();
   const unauthorizedListeners = new Set<() => void>(
@@ -123,18 +138,80 @@ export function createSyncEngine({
     store.setCursor(userId, cursor);
   }
 
+  /**
+   * Sube las fotos que el servidor no tiene. Sin `force`, se salta las que
+   * ya subió esta cuenta.
+   */
+  async function uploadPhotos(
+    token: string,
+    ids: readonly string[],
+    force: boolean,
+  ) {
+    if (!photos) {
+      return;
+    }
+    for (const id of ids) {
+      const photo = await photos.get(id);
+      if (!photo || (!force && photo.uploadedBy === userId)) {
+        continue;
+      }
+      try {
+        await api.putPhoto(token, id, photo);
+      } catch (error) {
+        if (isRejectedPhoto(error)) {
+          continue;
+        }
+        throw error;
+      }
+      await photos.markUploaded(id, userId);
+    }
+  }
+
+  /** Descarga las fotos de los tableros de la cuenta que faltan aquí. */
+  async function downloadPhotos(token: string) {
+    if (!photos) {
+      return;
+    }
+    const here = await photos.ids();
+    const wanted = new Set(
+      store
+        .localRecords()
+        .filter(
+          (record) => record.ownerId === userId && record.deletedAt === null,
+        )
+        .flatMap((record) => photoIdsOf(record.board)),
+    );
+    for (const id of wanted) {
+      if (here.has(id) || unavailablePhotos.has(id)) {
+        continue;
+      }
+      const file = await api.getPhoto(token, id);
+      if (file) {
+        await photos.saveDownloaded(id, file, userId);
+      } else {
+        // Hasta que el dispositivo que la tiene la suba, la casilla se
+        // muestra sin foto.
+        unavailablePhotos.add(id);
+      }
+    }
+  }
+
   async function push(token: string) {
     for (const record of store.pendingFor(userId)) {
       const version = record.board.updatedAt;
       let outcome;
       try {
-        outcome =
-          record.deletedAt !== null
-            ? await api.remove(token, record.board.id, record.deletedAt)
-            : await api.put(token, {
-                board: record.board,
-                archivedAt: record.archivedAt,
-              });
+        if (record.deletedAt !== null) {
+          outcome = await api.remove(token, record.board.id, record.deletedAt);
+        } else {
+          // Las fotos van antes que el tablero: así, quien reciba el tablero
+          // ya puede descargarlas.
+          await uploadPhotos(token, photoIdsOf(record.board), false);
+          outcome = await api.put(token, {
+            board: record.board,
+            archivedAt: record.archivedAt,
+          });
+        }
       } catch (error) {
         // Un tablero que el servidor no acepta no detiene a los demás.
         if (
@@ -146,6 +223,9 @@ export function createSyncEngine({
         throw error;
       }
       if (outcome.status === 'saved') {
+        // Las que el servidor no tiene aunque este dispositivo las subiera:
+        // por ejemplo, porque se borraron al ganar otra versión del tablero.
+        await uploadPhotos(token, outcome.missingPhotos, true);
         store.markSynced(record.board.id, version);
       } else {
         // El servidor tiene una versión más reciente: gana esa.
@@ -166,6 +246,7 @@ export function createSyncEngine({
         runAgain = false;
         await pull(token);
         await push(token);
+        await downloadPhotos(token);
       } while (runAgain && isStarted);
       failures = 0;
       lastSynced = new Date();

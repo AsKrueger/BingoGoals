@@ -5,7 +5,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createFakeAccountApi, type FakeAccountApi } from '../account/fakeApi';
 import { createMemorySessionStore } from '../account/sessionStore';
 import { App } from '../App';
@@ -16,6 +16,15 @@ import {
 import { EMPTY_LOCAL_DATA } from '../storage/storage';
 import { createBoardStore } from '../store/boardStore';
 import { createFakeBoardsApi, type FakeBoardsApi } from './fakeBoardsApi';
+
+// jsdom no decodifica imágenes: la reducción se prueba en photos.test.ts.
+vi.mock('../photos', async (original) => ({
+  ...(await original<typeof import('../photos')>()),
+  resizePhoto: vi.fn(async () => ({
+    type: 'image/jpeg',
+    bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]).buffer,
+  })),
+}));
 
 afterEach(cleanup);
 
@@ -337,5 +346,93 @@ describe('datos que no se pudieron leer', () => {
     device.press('Intentar recuperar');
 
     expect(device.view.getByText(/tampoco puede leer la copia/)).toBeTruthy();
+  });
+});
+
+describe('fotos', () => {
+  async function choosePhoto(device: Device, cell: string) {
+    device.press(/Editar casillas/);
+    device.press(`Editar: ${cell}`);
+    const dialog = within(device.view.getByRole('dialog'));
+    fireEvent.change(dialog.getByLabelText(/foto/), {
+      target: { files: [new File(['foto'], 'foto.jpg')] },
+    });
+    await dialog.findByAltText('Foto elegida');
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }));
+    device.press(/Editar casillas/);
+  }
+
+  function photoOf(device: Device, cell: string) {
+    return device.view.getByRole('button', { name: cell }).style
+      .backgroundImage;
+  }
+
+  /** A con una foto en la casilla 1, ya subida, y B con la misma cuenta. */
+  async function twoDevicesWithPhoto() {
+    const api = server();
+    const a = await open(api);
+    createBoard(a, 'Metas');
+    await signIn(a, 'Crear cuenta');
+    a.press('Volver');
+    await choosePhoto(a, 'Objetivo 1');
+    await waitFor(() => expect(api.boards.photos('usuario-1').size).toBe(1));
+
+    const b = await open(api);
+    await signIn(b, 'Iniciar sesión');
+    await syncNow(b);
+    b.press('Volver');
+    return { api, a, b };
+  }
+
+  test('una foto elegida en A aparece en B', async () => {
+    const { b } = await twoDevicesWithPhoto();
+
+    await waitFor(() => expect(photoOf(b, 'Objetivo 1')).toContain('blob:'));
+  });
+
+  test('cambiar la foto en A: B muestra la nueva y el servidor borra la anterior', async () => {
+    const { api, a, b } = await twoDevicesWithPhoto();
+    const [first] = api.boards.photos('usuario-1').keys();
+
+    await choosePhoto(a, 'Objetivo 1');
+    await waitFor(() =>
+      expect([...api.boards.photos('usuario-1').keys()]).not.toContain(first),
+    );
+    b.press('Cuenta');
+    await syncNow(b);
+    b.press('Volver');
+
+    const [second] = api.boards.photos('usuario-1').keys();
+    expect(second).toBeDefined();
+    await waitFor(() =>
+      expect(b.storage.storedPhotos.has(second as string)).toBe(true),
+    );
+  });
+
+  test('quitar la foto en A la quita en B y del servidor', async () => {
+    const { api, a, b } = await twoDevicesWithPhoto();
+
+    a.press(/Editar casillas/);
+    a.press('Editar: Objetivo 1');
+    a.press('Quitar foto');
+    a.press('Guardar');
+    await waitFor(() => expect(api.boards.photos('usuario-1').size).toBe(0));
+    b.press('Cuenta');
+    await syncNow(b);
+    b.press('Volver');
+
+    await waitFor(() => expect(photoOf(b, 'Objetivo 1')).toBe(''));
+  });
+
+  test('sin cuenta, las fotos funcionan y no se envían', async () => {
+    const api = server();
+    const device = await open(api);
+    createBoard(device, 'Metas');
+
+    await choosePhoto(device, 'Objetivo 1');
+
+    expect(photoOf(device, 'Objetivo 1')).toContain('blob:');
+    expect(device.storage.storedPhotos.size).toBe(1);
+    expect(api.boards.calls.putPhoto).toBe(0);
   });
 });

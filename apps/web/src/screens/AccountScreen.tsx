@@ -7,6 +7,7 @@ import { Modal } from '../components/Modal';
 import { Screen } from '../components/Screen';
 import { SYNC_LABELS } from '../components/SyncBadge';
 import type { Sync } from '../hooks/useSync';
+import { usePhotos } from '../hooks/usePhotos';
 import { readLegacyRecord } from '../storage/schema';
 import type { BoardStorage, UnreadableCopy } from '../storage/storage';
 import type { BoardStore } from '../store/boardStore';
@@ -263,6 +264,7 @@ function UnreadableCopies({
 }) {
   const [copies, setCopies] = useState<UnreadableCopy[]>([]);
   const [message, setMessage] = useState('');
+  const photos = usePhotos();
 
   useEffect(() => {
     let cancelled = false;
@@ -279,13 +281,19 @@ function UnreadableCopies({
     return null;
   }
 
-  function recover(copy: UnreadableCopy) {
+  async function recover(copy: UnreadableCopy) {
     const result = readLegacyRecord(copy.raw);
     if (result.status !== 'loaded') {
       setMessage(
         'Esta versión de BingoGoals tampoco puede leer la copia. Descárgala para conservarla.',
       );
       return;
+    }
+    // Las fotos que iban dentro de la copia se guardan antes que sus tableros.
+    try {
+      await photos?.addAll(result.photos);
+    } catch {
+      // Sin espacio para las fotos, los tableros se recuperan sin ellas.
     }
     const added = store.importBoards(result.data);
     setMessage(
@@ -319,7 +327,7 @@ function UnreadableCopies({
           <li key={copy.key} className={styles.copy}>
             <span>{describeCopy(copy)}</span>
             <span className={styles.actions}>
-              <Button variant="secondary" onClick={() => recover(copy)}>
+              <Button variant="secondary" onClick={() => void recover(copy)}>
                 Intentar recuperar
               </Button>
               <Button variant="ghost" onClick={() => download(copy)}>

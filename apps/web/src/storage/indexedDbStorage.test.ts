@@ -5,18 +5,24 @@ import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, describe, expect, test } from 'vitest';
 import storedV1 from './fixtures/stored-v1.json';
 import { createIndexedDbStorage } from './indexedDbStorage';
-import { toStoredData } from './schema';
 import {
   STORAGE_VERSION,
   type LoadResult,
   type LocalData,
   type LocalRecord,
   type StorageChanges,
+  type StoredPhoto,
 } from './storage';
-import { sampleData } from './testData';
+import {
+  legacyStoredData,
+  SAMPLE_JPEG,
+  SAMPLE_JPEG_DATA_URL,
+  sampleData,
+  withoutPhotoIds,
+} from './testData';
 
 /** Abre la base de datos tal cual, sin pasar por la capa de almacenamiento. */
-function openRaw(version = 2): Promise<IDBDatabase> {
+function openRaw(version = 3): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const open = indexedDB.open('bingogoals', version);
     open.onupgradeneeded = () => {
@@ -33,6 +39,9 @@ function openRaw(version = 2): Promise<IDBDatabase> {
         if (!database.objectStoreNames.contains('boards')) {
           database.createObjectStore('boards', { keyPath: 'board.id' });
         }
+      }
+      if (version >= 3 && !database.objectStoreNames.contains('photos')) {
+        database.createObjectStore('photos', { keyPath: 'id' });
       }
     };
     open.onsuccess = () => resolve(open.result);
@@ -53,7 +62,7 @@ async function writeLegacy(value: unknown) {
 }
 
 /** Todo lo que hay en un almacén, como pares [clave, valor]. */
-async function dump(name: 'state' | 'boards' | 'meta') {
+async function dump(name: 'state' | 'boards' | 'meta' | 'photos') {
   const database = await openRaw();
   const result = await new Promise<[IDBValidKey, unknown][]>((resolve) => {
     const store = database.transaction(name).objectStore(name);
@@ -103,7 +112,18 @@ beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });
 
-describe('versión 3: un registro por tablero', () => {
+function photo(overrides: Partial<StoredPhoto> = {}): StoredPhoto {
+  return {
+    id: crypto.randomUUID(),
+    type: 'image/jpeg',
+    bytes: SAMPLE_JPEG.slice().buffer,
+    savedAt: '2026-10-20T10:00:00.000Z',
+    uploadedBy: null,
+    ...overrides,
+  };
+}
+
+describe('versión 4: un registro por tablero', () => {
   test('sin nada guardado, cargar dice que no hay datos', async () => {
     expect(await createIndexedDbStorage().load()).toEqual({ status: 'empty' });
   });
@@ -234,17 +254,21 @@ describe('migración desde un único registro (versiones 1 y 2)', () => {
 
   test('un registro de la versión 2 también se migra, sin perder fotos', async () => {
     const data = sampleData();
-    await writeLegacy(toStoredData(data));
+    await writeLegacy(legacyStoredData(data));
 
     const loadedData = loaded(await createIndexedDbStorage().load());
 
     const first = loadedData.records.find(
       (item) => item.board.id === data.collection.boards[0]?.id,
     );
-    expect(first?.board).toEqual(data.collection.boards[0]);
-    expect(first?.board.cells[0]?.imagePath).toBe(
-      'data:image/jpeg;base64,AAAA',
+    expect(withoutPhotoIds(first?.board)).toEqual(
+      withoutPhotoIds(data.collection.boards[0]),
     );
+    // La foto ya no va en el tablero: se guarda aparte, con su identificador.
+    const photoId = first?.board.cells[0]?.photoId;
+    const [[key, stored]] = (await dump('photos')) as [string, StoredPhoto][];
+    expect(key).toBe(photoId);
+    expect(new Uint8Array(stored.bytes)).toEqual(SAMPLE_JPEG);
   });
 
   test('tras migrar, el registro antiguo desaparece y no quedan copias', async () => {
@@ -258,7 +282,7 @@ describe('migración desde un único registro (versiones 1 y 2)', () => {
     );
   });
 
-  test('la siguiente carga ya lee la versión 3 y devuelve lo mismo', async () => {
+  test('la siguiente carga ya lee la versión actual y devuelve lo mismo', async () => {
     await writeLegacy(structuredClone(storedV1));
     const first = loaded(await createIndexedDbStorage().load());
 
@@ -306,6 +330,189 @@ describe('migración desde un único registro (versiones 1 y 2)', () => {
     await storage.apply({ put: [record()] });
 
     expect(await dump('state')).toHaveLength(1);
+  });
+});
+
+describe('migración de la versión 3: fotos dentro de los tableros', () => {
+  /** Deja guardados tableros como los guardaba la versión 3. */
+  async function writeV3(records: unknown[]) {
+    const database = await openRaw(2);
+    await new Promise<void>((resolve) => {
+      const transaction = database.transaction(['boards', 'meta'], 'readwrite');
+      for (const value of records) {
+        transaction.objectStore('boards').put(value);
+      }
+      transaction.objectStore('meta').put(3, 'version');
+      transaction.oncomplete = () => resolve();
+    });
+    database.close();
+  }
+
+  /** Un registro de la versión 3, con una foto incrustada en la primera casilla. */
+  function v3Record(ownerId: string | null) {
+    const board = createBoard('Con foto', '3x3');
+    return {
+      board: {
+        ...board,
+        cells: board.cells.map((cell, index) => ({
+          ...withoutPhotoIds({ cells: [cell] }).cells[0],
+          imagePath: index === 0 ? SAMPLE_JPEG_DATA_URL : null,
+        })),
+      },
+      archivedAt: null,
+      deletedAt: null,
+      ownerId,
+      pending: false,
+    };
+  }
+
+  test('las fotos pasan a guardarse aparte y el tablero lleva su identificador', async () => {
+    const old = v3Record(null);
+    await writeV3([old]);
+
+    const [migrated] = loaded(await createIndexedDbStorage().load()).records;
+
+    const photoId = migrated?.board.cells[0]?.photoId;
+    expect(photoId).toEqual(expect.any(String));
+    expect(migrated?.board.cells[1]?.photoId).toBeNull();
+    expect(JSON.stringify(migrated)).not.toContain('imagePath');
+    const photos = (await dump('photos')) as [string, StoredPhoto][];
+    expect(photos.map(([key]) => key)).toEqual([photoId]);
+    expect(photos[0]?.[1]).toMatchObject({
+      type: 'image/jpeg',
+      uploadedBy: null,
+    });
+    // Sin cuenta no hay nada que subir: el tablero no cambia de versión.
+    expect(migrated?.board.updatedAt).toBe(old.board.updatedAt);
+    expect(migrated?.pending).toBe(false);
+  });
+
+  test('queda guardado en la versión 4', async () => {
+    await writeV3([v3Record(null)]);
+
+    const first = loaded(await createIndexedDbStorage().load());
+    const second = loaded(await createIndexedDbStorage().load());
+
+    expect(await dump('meta')).toEqual(
+      expect.arrayContaining([['version', STORAGE_VERSION]]),
+    );
+    expect(second.records).toEqual(first.records);
+    expect(await dump('photos')).toHaveLength(1);
+  });
+
+  test('un tablero de una cuenta con fotos pasa a estar pendiente de subir', async () => {
+    const old = v3Record('usuario-1');
+    await writeV3([old]);
+
+    const [migrated] = loaded(await createIndexedDbStorage().load()).records;
+
+    expect(migrated?.pending).toBe(true);
+    expect(Date.parse(migrated!.board.updatedAt)).toBeGreaterThan(
+      Date.parse(old.board.updatedAt),
+    );
+  });
+
+  test('un tablero de una cuenta sin fotos no cambia', async () => {
+    const plain = record(createBoard('Sin foto', '3x3'), {
+      ownerId: 'usuario-1',
+    });
+    const old = {
+      ...plain,
+      board: {
+        ...withoutPhotoIds(plain.board),
+        cells: withoutPhotoIds(plain.board).cells.map((cell: object) => ({
+          ...cell,
+          imagePath: null,
+        })),
+      },
+    };
+    await writeV3([old]);
+
+    const [migrated] = loaded(await createIndexedDbStorage().load()).records;
+
+    expect(migrated?.pending).toBe(false);
+    expect(migrated?.board.updatedAt).toBe(plain.board.updatedAt);
+    expect(migrated?.board.cells[0]).toEqual(plain.board.cells[0]);
+  });
+});
+
+describe('fotos', () => {
+  test('se guardan como archivo y se leen igual', async () => {
+    const storage = createIndexedDbStorage();
+    const item = photo();
+
+    await storage.photos.put([item]);
+
+    const read = await storage.photos.get(item.id);
+    expect(read).toMatchObject({ id: item.id, type: 'image/jpeg' });
+    expect(read?.bytes).toBeInstanceOf(ArrayBuffer);
+    expect(new Uint8Array(read!.bytes)).toEqual(SAMPLE_JPEG);
+  });
+
+  test('una foto que no está devuelve undefined', async () => {
+    expect(
+      await createIndexedDbStorage().photos.get(crypto.randomUUID()),
+    ).toBeUndefined();
+  });
+
+  test('lista las fotos sin su archivo', async () => {
+    const storage = createIndexedDbStorage();
+    const item = photo();
+    await storage.photos.put([item]);
+
+    const [info] = await storage.photos.list();
+
+    expect(info).toEqual({
+      id: item.id,
+      type: item.type,
+      savedAt: item.savedAt,
+      uploadedBy: null,
+    });
+    expect(await storage.photos.ids()).toEqual([item.id]);
+  });
+
+  test('anota qué cuenta ya la tiene en el servidor', async () => {
+    const storage = createIndexedDbStorage();
+    const item = photo();
+    await storage.photos.put([item]);
+
+    await storage.photos.markUploaded(item.id, 'usuario-1');
+
+    expect((await storage.photos.get(item.id))?.uploadedBy).toBe('usuario-1');
+  });
+
+  test('se borran', async () => {
+    const storage = createIndexedDbStorage();
+    const [kept, removed] = [photo(), photo()];
+    await storage.photos.put([kept, removed]);
+
+    await storage.photos.remove([removed.id]);
+
+    expect(await storage.photos.ids()).toEqual([kept.id]);
+  });
+
+  test('guardar un tablero no toca las fotos', async () => {
+    const storage = createIndexedDbStorage();
+    const item = photo();
+    await storage.photos.put([item]);
+
+    await storage.apply({ put: [record()] });
+
+    expect(await storage.photos.ids()).toEqual([item.id]);
+  });
+
+  test('las demás pestañas reciben el aviso de las fotos nuevas', async () => {
+    const first = createIndexedDbStorage();
+    const second = createIndexedDbStorage();
+    const received: string[][] = [];
+    const stop = second.photos.subscribe((ids) => received.push(ids));
+    const item = photo();
+
+    await first.photos.put([item]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    stop();
+
+    expect(received).toEqual([[item.id]]);
   });
 });
 

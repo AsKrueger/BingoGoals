@@ -1,4 +1,5 @@
 import { boardDimension } from './board.js';
+import { isPhotoId } from './photos.js';
 import {
   BINGO_SIZES,
   BINGO_THEMES,
@@ -52,17 +53,11 @@ function isNullableString(value: unknown): value is string | null {
 }
 
 /**
- * Las fotos se guardan como URL de datos de imagen. No se admite otra cosa:
- * este valor acaba en un `url()` de CSS, y una dirección externa o un texto
- * manipulado no deben llegar ahí.
+ * La casilla solo guarda el identificador de su foto: la foto va aparte. Se
+ * exige un UUID porque acaba en la dirección de la API.
  */
-const IMAGE_DATA_URL =
-  /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+=*$/;
-
-function isNullableImage(value: unknown): value is string | null {
-  return (
-    value === null || (typeof value === 'string' && IMAGE_DATA_URL.test(value))
-  );
+function isNullablePhotoId(value: unknown): value is string | null {
+  return value === null || isPhotoId(value);
 }
 
 export function isBingoCell(value: unknown): value is BingoCell {
@@ -73,7 +68,7 @@ export function isBingoCell(value: unknown): value is BingoCell {
     typeof value.isCompleted === 'boolean' &&
     typeof value.isCentralStar === 'boolean' &&
     isNullableString(value.icon) &&
-    isNullableImage(value.imagePath) &&
+    isNullablePhotoId(value.photoId) &&
     isNullableString(value.color)
   );
 }

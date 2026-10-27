@@ -46,7 +46,7 @@ function sampleBoard(size: '3x3' | '5x5' = '5x5') {
     text: 'Correr 10 km',
     icon: '🏋️',
     color: '#2196F3',
-    imagePath: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+    photoId: '0b7c8f3e-5a2d-4c1b-9e6f-1a2b3c4d5e6f',
   });
   return toggleCell(board, 0);
 }

@@ -91,10 +91,10 @@ describe('fromBoardRow', () => {
         (row.cells = (row.cells as unknown[]).slice(1) as Board['cells']),
     ],
     [
-      'una casilla lleva una foto que no es una imagen',
+      'una casilla lleva una foto incrustada en lugar de su identificador',
       (row) => {
-        const cells = row.cells as { imagePath: string }[];
-        cells[0]!.imagePath = 'https://example.com/foto.png';
+        const cells = row.cells as { photoId: string }[];
+        cells[0]!.photoId = 'data:image/jpeg;base64,AAAA';
       },
     ],
   ])('rechaza una fila si %s', (_, corrupt) => {

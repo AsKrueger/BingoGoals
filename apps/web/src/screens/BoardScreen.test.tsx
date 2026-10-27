@@ -1,12 +1,22 @@
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { BingoSize } from '@bingogoals/domain';
 import { resizePhoto } from '../photos';
 import { startApp } from '../test/helpers';
 
 // jsdom no decodifica imágenes: la reducción se prueba en photos.test.ts.
-vi.mock('../photos', () => ({
-  resizePhoto: vi.fn(async () => 'data:image/jpeg;base64,REDUCIDA'),
+vi.mock('../photos', async (original) => ({
+  ...(await original<typeof import('../photos')>()),
+  resizePhoto: vi.fn(async () => ({
+    type: 'image/jpeg',
+    bytes: new Uint8Array([0xff, 0xd8, 0xff]).buffer,
+  })),
 }));
 
 afterEach(cleanup);
@@ -134,9 +144,7 @@ describe('editar', () => {
     await dialog.findByAltText('Foto elegida');
     fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }));
 
-    expect(cell('Editar: Objetivo 1').style.backgroundImage).toContain(
-      'data:image/jpeg;base64,REDUCIDA',
-    );
+    expect(cell('Editar: Objetivo 1').style.backgroundImage).toContain('blob:');
     expect(resizePhoto).toHaveBeenCalledWith(expect.any(File));
 
     fireEvent.click(cell('Editar: Objetivo 1'));
@@ -160,6 +168,42 @@ describe('editar', () => {
       'No se ha podido leer la foto. Prueba con otra imagen.',
     );
     expect(dialog.queryByAltText('Foto elegida')).toBeNull();
+  });
+
+  test('rechaza un archivo de más de 20 MB sin intentar reducirlo', async () => {
+    vi.mocked(resizePhoto).mockClear();
+    renderBoard('3x3');
+    const dialog = openEditor('Objetivo 1');
+    const huge = new File(['foto'], 'enorme.jpg', { type: 'image/jpeg' });
+    Object.defineProperty(huge, 'size', { value: 20 * 1024 * 1024 + 1 });
+
+    fireEvent.change(dialog.getByLabelText('Elegir foto'), {
+      target: { files: [huge] },
+    });
+
+    expect((await dialog.findByRole('alert')).textContent).toBe(
+      'La foto es demasiado grande: elige una de menos de 20 MB.',
+    );
+    expect(resizePhoto).not.toHaveBeenCalled();
+  });
+
+  test('la foto se guarda aparte: el tablero solo lleva su identificador', async () => {
+    const storage = startApp('Metas', '3x3');
+    const dialog = openEditor('Objetivo 1');
+
+    fireEvent.change(dialog.getByLabelText('Elegir foto'), {
+      target: { files: [new File(['foto'], 'foto.png')] },
+    });
+    await dialog.findByAltText('Foto elegida');
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }));
+
+    const [photo] = [...storage.storedPhotos.values()];
+    expect(photo).toMatchObject({ type: 'image/jpeg', uploadedBy: null });
+    await waitFor(() =>
+      expect(JSON.stringify([...storage.records.values()])).toContain(
+        `"photoId":"${photo?.id}"`,
+      ),
+    );
   });
 
   test('permite quitar el icono y el color', () => {

@@ -7,11 +7,15 @@ import {
   type BoardCollection,
 } from '@bingogoals/domain';
 import { migrateStoredData } from './migrations';
-import type { AppData } from './storage';
+import { createPhotoExtraction } from './photoMigration';
+import type { AppData, StoredPhoto } from './storage';
 
 // Formato de las versiones 1 y 2: todos los datos en un único registro. La
-// versión 3 guarda un registro por tablero (ver storage.ts); esto solo sirve
-// para leer lo guardado antes y migrarlo.
+// versión 3 guarda un registro por tablero y la 4, las fotos aparte (ver
+// storage.ts); esto solo sirve para leer lo guardado antes y migrarlo.
+//
+// Al leerlo, las fotos incrustadas en las casillas (`imagePath`) se sacan
+// aparte, así que lo que se valida ya lleva `photoId`, como en la versión 4.
 
 /**
  * Última versión del formato de un único registro.
@@ -24,7 +28,12 @@ export const RECORD_VERSION = 2;
 /** Resultado de leer el registro único de las versiones 1 y 2. */
 export type LegacyReadResult =
   | { readonly status: 'empty' }
-  | { readonly status: 'loaded'; readonly data: AppData }
+  | {
+      readonly status: 'loaded';
+      readonly data: AppData;
+      /** Las fotos que iban incrustadas en las casillas. */
+      readonly photos: StoredPhoto[];
+    }
   | { readonly status: 'unreadable' };
 
 export interface StoredData extends AppData {
@@ -64,12 +73,40 @@ export function isOlderVersion(raw: unknown): boolean {
  * versión anterior. Que no haya registro (primera visita) no es lo mismo que
  * haya uno que no se sabe leer.
  */
-export function readLegacyRecord(raw: unknown): LegacyReadResult {
+export function readLegacyRecord(
+  raw: unknown,
+  now: Date = new Date(),
+): LegacyReadResult {
   if (raw === undefined) {
     return { status: 'empty' };
   }
-  const data = parseStoredData(migrateStoredData(raw));
-  return data ? { status: 'loaded', data } : { status: 'unreadable' };
+  const extraction = createPhotoExtraction(now);
+  const data = parseStoredData(
+    mapBoards(migrateStoredData(raw), extraction.board),
+  );
+  return data
+    ? { status: 'loaded', data, photos: extraction.photos }
+    : { status: 'unreadable' };
+}
+
+/** Aplica `change` a cada tablero de un registro sin validar. */
+function mapBoards(raw: unknown, change: (board: unknown) => unknown): unknown {
+  if (!isRecord(raw)) {
+    return raw;
+  }
+  const { collection, history } = raw;
+  return {
+    ...raw,
+    collection:
+      isRecord(collection) && Array.isArray(collection.boards)
+        ? { ...collection, boards: collection.boards.map(change) }
+        : collection,
+    history: Array.isArray(history)
+      ? history.map((entry: unknown) =>
+          isRecord(entry) ? { ...entry, board: change(entry.board) } : entry,
+        )
+      : history,
+  };
 }
 
 function isCollection(value: unknown): value is BoardCollection {

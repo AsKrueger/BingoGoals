@@ -19,6 +19,7 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   boards       Board[]
+  photos       Photo[]
   sessions     Session[]
 
   @@map("users")
@@ -56,6 +57,24 @@ model Board {
 
   @@index([userId, syncedAt])
   @@map("boards")
+}
+
+/// Foto de una casilla, guardada aparte del tablero: la casilla solo lleva
+/// su identificador (`photoId`). Es inmutable; cambiar la foto de una casilla
+/// crea otra con otro identificador, así que nunca hay conflictos.
+model Photo {
+  id     String @id @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// image/jpeg, image/png o image/webp, según el contenido del archivo.
+  type String
+  data Bytes
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("photos")
 }
 
 /// Una sesión iniciada. El cliente guarda el identificador de sesión; aquí

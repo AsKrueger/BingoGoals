@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { photoIdsOf } from '@bingogoals/domain';
+import { useEffect, useState } from 'react';
 import { useAccount, type AccountServices } from './account/useAccount';
 import { Notice, NoticeStack } from './components/Notice';
 import { useBoards } from './hooks/useBoards';
+import { PhotoContext } from './hooks/usePhotos';
 import { useSync } from './hooks/useSync';
 import { AccountScreen } from './screens/AccountScreen';
 import { AuthScreen } from './screens/AuthScreen';
@@ -15,6 +17,7 @@ import { StatsScreen } from './screens/StatsScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
 import type { BoardStorage } from './storage/storage';
 import type { BoardStore } from './store/boardStore';
+import { createPhotoStore, type PhotoStore } from './store/photoStore';
 
 type ScreenName =
   | 'board'
@@ -45,8 +48,10 @@ const LOAD_PROBLEM_MESSAGES: Record<LoadProblem, string> = {
 interface AppProps {
   /** Los tableros, ya cargados del dispositivo. */
   store: BoardStore;
-  /** El almacenamiento del dispositivo, para las copias de datos ilegibles. */
+  /** El almacenamiento del dispositivo: fotos y copias de datos ilegibles. */
   storage: BoardStorage;
+  /** Las fotos de las casillas. Por defecto, las de `storage`. */
+  photos?: PhotoStore;
   /** Las APIs de cuentas y tableros, y dónde se guarda la sesión. */
   accountServices: AccountServices;
   /** Problema al leer los datos guardados, si lo hubo. */
@@ -56,13 +61,26 @@ interface AppProps {
 export function App({
   store,
   storage,
+  photos: givenPhotos,
   accountServices,
   loadProblem = null,
 }: AppProps) {
+  const [photos] = useState(
+    () => givenPhotos ?? createPhotoStore(storage.photos),
+  );
   const boards = useBoards(store);
   // La cuenta es opcional: nada de lo demás depende de ella.
   const account = useAccount(accountServices);
-  const sync = useSync(store, account, accountServices);
+  const sync = useSync(store, photos, account, accountServices);
+
+  // Al abrir, se borran del dispositivo las fotos que ya no usa ninguna
+  // casilla, de ninguna cuenta.
+  useEffect(() => {
+    const used = new Set(
+      store.localRecords().flatMap((record) => photoIdsOf(record.board)),
+    );
+    photos.collect(used).catch(() => {});
+  }, [store, photos]);
   const { saveError, retrySave } = boards;
   const [showLoadProblem, setShowLoadProblem] = useState(loadProblem !== null);
   const [screen, setScreen] = useState<ScreenName>('board');
@@ -210,7 +228,7 @@ export function App({
   }
 
   return (
-    <>
+    <PhotoContext value={photos}>
       {renderScreen()}
       <NoticeStack>
         {loadProblem && showLoadProblem && (
@@ -233,6 +251,6 @@ export function App({
           </Notice>
         )}
       </NoticeStack>
-    </>
+    </PhotoContext>
   );
 }

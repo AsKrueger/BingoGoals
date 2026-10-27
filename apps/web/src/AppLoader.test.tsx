@@ -25,8 +25,12 @@ import {
   submitCreateForm,
 } from './test/helpers';
 
-vi.mock('./photos', () => ({
-  resizePhoto: vi.fn(async () => 'data:image/jpeg;base64,REDUCIDA'),
+vi.mock('./photos', async (original) => ({
+  ...(await original<typeof import('./photos')>()),
+  resizePhoto: vi.fn(async () => ({
+    type: 'image/jpeg',
+    bytes: new Uint8Array([0xff, 0xd8, 0xff]).buffer,
+  })),
 }));
 
 afterEach(cleanup);
@@ -218,8 +222,9 @@ describe('datos de la versión 1', () => {
       'dataset.theme',
       'sakura',
     );
-    expect(button('Correr 10 km').style.backgroundImage).toContain(
-      'data:image/jpeg;base64,AAAA',
+    // La foto, que iba dentro del tablero, ahora se guarda aparte.
+    await waitFor(() =>
+      expect(button('Correr 10 km').style.backgroundImage).toContain('blob:'),
     );
   });
 
@@ -327,9 +332,10 @@ describe('guardado automático', () => {
     const edited = button('Correr 10 km');
     expect(edited.textContent).toContain('🏋️');
     expect(edited.style.getPropertyValue('--cell-color')).toBe('#2196F3');
-    expect(button('Objetivo 2').style.backgroundImage).toContain(
-      'data:image/jpeg;base64,REDUCIDA',
+    await waitFor(() =>
+      expect(button('Objetivo 2').style.backgroundImage).toContain('blob:'),
     );
+    expect(storage.storedPhotos.size).toBe(1);
   });
 
   test('el tema de cada tablero sigue al recargar', async () => {

@@ -88,11 +88,13 @@ Un usuario puede registrarse con correo y contraseña, iniciar y cerrar sesión,
 
 Primero el dispositivo: cada cambio se guarda al momento en IndexedDB, un registro por tablero, y se sincroniza después en segundo plano. Sin conexión no se pierde nada.
 
-| Ruta                                   | Qué hace                                                                                  |
-| -------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `GET /boards?since=<cursor>`           | Tableros de la cuenta cambiados desde el cursor, borrados incluidos, y el cursor nuevo.   |
-| `PUT /boards/:id`                      | Crea o sustituye un tablero. Responde 409 con la versión guardada si esa es más reciente. |
-| `DELETE /boards/:id?deletedAt=<fecha>` | Borra el tablero de forma lógica. Responde 409 si tiene un cambio posterior.              |
+| Ruta                                   | Qué hace                                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /boards?since=<cursor>`           | Tableros de la cuenta cambiados desde el cursor, borrados incluidos, y el cursor nuevo.                                                          |
+| `PUT /boards/:id`                      | Crea o sustituye un tablero. Responde con las fotos del tablero que faltan en el servidor, o 409 con la versión guardada si esa es más reciente. |
+| `DELETE /boards/:id?deletedAt=<fecha>` | Borra el tablero de forma lógica. Responde 409 si tiene un cambio posterior.                                                                     |
+| `PUT /photos/:id`                      | Sube una foto, con el archivo tal cual como cuerpo. Subirla dos veces no cambia nada.                                                            |
+| `GET /photos/:id`                      | Descarga una foto.                                                                                                                               |
 
 - La unidad de sincronización es el tablero completo. Ante dos versiones gana la de `updatedAt` más reciente; un borrado cuenta como versión con su fecha.
 - La API rechaza fechas adelantadas más de 5 minutos respecto a su reloj.
@@ -100,7 +102,17 @@ Primero el dispositivo: cada cambio se guarda al momento en IndexedDB, un regist
 - La web sincroniza al abrirse, al volver a primer plano, al recuperar la conexión, un segundo después de cada cambio y cada minuto. Si el servidor no responde, reintenta cada vez más tarde, hasta un minuto.
 - Los tableros creados sin cuenta pasan a la primera cuenta que inicie sesión. Los de una cuenta no se ven ni se suben con otra.
 - Las pestañas del mismo navegador se avisan de cada cambio con un `BroadcastChannel`.
-- Las fotos todavía no se sincronizan: se quedan en el dispositivo hasta la Issue #9.
+
+### Fotos
+
+La foto de una casilla se guarda aparte del tablero: la casilla solo lleva su identificador (`photoId`). Así, guardar un cambio en un tablero no reescribe sus fotos.
+
+- La web reduce cada foto a 1.024 px de lado, en JPEG, antes de guardarla. Rechaza archivos de más de 20 MB sin intentar reducirlos.
+- En el dispositivo, las fotos van en su propio almacén de IndexedDB, como archivo. En el servidor, en la tabla `photos` de PostgreSQL.
+- Una foto no cambia nunca: elegir otra para una casilla crea una foto nueva, con otro identificador. Por eso no hay conflictos que resolver.
+- La sincronización sube las fotos de un tablero justo antes que el tablero, y descarga las que faltan en el dispositivo. Mientras una foto no llega, la casilla muestra un hueco.
+- La API admite JPEG, PNG y WebP de hasta 2 MB, y decide el tipo por el contenido del archivo, no por la cabecera.
+- El servidor borra una foto en cuanto ninguna casilla la usa, y las que nadie llegó a usar al cabo de un día. El dispositivo borra al abrir la web las que ninguna casilla usa desde hace más de un día.
 
 ### Base de datos
 

@@ -26,10 +26,21 @@ export class NetworkError extends Error {
   }
 }
 
+/** Un archivo tal cual, sin JSON: una foto. */
+export interface FileBody {
+  readonly type: string;
+  readonly bytes: ArrayBuffer;
+}
+
 export interface RequestOptions {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   token?: string;
+  /** Cuerpo que se envía como JSON. */
   body?: unknown;
+  /** Archivo que se envía tal cual, en lugar de `body`. */
+  file?: FileBody;
+  /** Si es true, la respuesta es un archivo (FileBody), no JSON. */
+  expectFile?: boolean;
 }
 
 export type Requester = <T>(
@@ -38,9 +49,9 @@ export type Requester = <T>(
 ) => Promise<T>;
 
 /**
- * Peticiones JSON a la API sobre `fetch`. Un fallo de red, o no recibir
- * respuesta en `timeoutMs`, lanza `NetworkError`; una respuesta de error,
- * `ApiError`.
+ * Peticiones a la API sobre `fetch`, en JSON salvo los archivos. Un fallo de
+ * red, o no recibir respuesta en `timeoutMs`, lanza `NetworkError`; una
+ * respuesta de error, `ApiError`.
  */
 export function createRequester(
   baseUrl: string,
@@ -52,20 +63,31 @@ export function createRequester(
     path: string,
     options: RequestOptions,
   ): Promise<T> {
+    const { file, body: json } = options;
     let response: Response;
     try {
       response = await fetchFn(`${root}${path}`, {
         method: options.method,
         headers: {
-          ...(options.body !== undefined && {
-            'Content-Type': 'application/json',
-          }),
+          ...(file && { 'Content-Type': file.type }),
+          ...(!file &&
+            json !== undefined && { 'Content-Type': 'application/json' }),
           ...(options.token && { Authorization: `Bearer ${options.token}` }),
         },
-        body:
-          options.body === undefined ? undefined : JSON.stringify(options.body),
+        body: file
+          ? file.bytes
+          : json === undefined
+            ? undefined
+            : JSON.stringify(json),
         signal: AbortSignal.timeout(timeoutMs),
       });
+      if (options.expectFile && response.ok) {
+        const received: FileBody = {
+          type: response.headers.get('Content-Type') ?? '',
+          bytes: await response.arrayBuffer(),
+        };
+        return received as T;
+      }
     } catch {
       throw new NetworkError();
     }

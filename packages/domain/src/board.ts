@@ -6,7 +6,7 @@ export const DEFAULT_STYLE: BingoStyle = {
 };
 
 export type BingoCellChanges = Partial<
-  Pick<BingoCell, 'text' | 'icon' | 'imagePath' | 'color'>
+  Pick<BingoCell, 'text' | 'icon' | 'photoId' | 'color'>
 >;
 
 export function boardDimension(size: BingoSize): number {
@@ -29,7 +29,7 @@ export function createBoard(
       text: isCentralStar ? 'ESTRELLA' : `Objetivo ${index + 1}`,
       isCompleted: isCentralStar,
       icon: null,
-      imagePath: null,
+      photoId: null,
       color: null,
       isCentralStar,
     };
@@ -68,12 +68,12 @@ export function updateCell(
   changes: BingoCellChanges,
   now: Date = new Date(),
 ): BingoBoard {
-  const { text, icon, imagePath, color } = changes;
+  const { text, icon, photoId, color } = changes;
   return replaceCell(board, index, now, (cell) => ({
     ...cell,
     ...(text !== undefined && { text }),
     ...(icon !== undefined && { icon }),
-    ...(imagePath !== undefined && { imagePath }),
+    ...(photoId !== undefined && { photoId }),
     ...(color !== undefined && { color }),
   }));
 }

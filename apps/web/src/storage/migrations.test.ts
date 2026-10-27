@@ -5,6 +5,7 @@ import storedV1 from './fixtures/stored-v1.json';
 import { migrateStoredData } from './migrations';
 import { readLegacyRecord, RECORD_VERSION } from './schema';
 import type { AppData } from './storage';
+import { withoutPhotoIds } from './testData';
 
 // fixtures/stored-v1.json es un registro real de la versión 1: lo generó el
 // código de la fase 1 (commit 3a78468) con dos tableros y uno archivado.
@@ -65,13 +66,15 @@ describe('migración de la versión 1 a la 2', () => {
     const data = loaded(v1());
 
     data.collection.boards.forEach((board, index) => {
-      expect(board.cells).toEqual(v1().collection.boards[index].cells);
+      expect(withoutPhotoIds(board).cells).toEqual(
+        withoutPhotoIds(v1().collection.boards[index]).cells,
+      );
     });
     expect(data.collection.boards[0]?.cells[0]).toMatchObject({
       text: 'Correr 10 km',
       icon: '🏋️',
       color: '#2196F3',
-      imagePath: 'data:image/jpeg;base64,AAAA',
+      photoId: expect.any(String),
       isCompleted: true,
     });
     expect(data.collection.boards[1]?.cells[12]).toMatchObject({
@@ -86,7 +89,9 @@ describe('migración de la versión 1 a la 2', () => {
     expect(data.history).toHaveLength(1);
     expect(data.history[0]?.archivedAt).toBe('2026-10-05T10:00:00.000Z');
     expect(data.history[0]?.board.title).toBe('Archivado');
-    expect(data.history[0]?.board.cells).toEqual(v1().history[0].board.cells);
+    expect(withoutPhotoIds(data.history[0]?.board).cells).toEqual(
+      withoutPhotoIds(v1().history[0].board).cells,
+    );
   });
 
   test('el estilo conserva el tema y pierde los dos campos sin uso', () => {
