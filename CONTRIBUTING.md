@@ -16,6 +16,9 @@ npm install
 - Las correcciones van en una rama `bugfix/<descripción>`. Por ejemplo, `bugfix/health-endpoint`.
 - Los cambios llegan a las ramas compartidas mediante pull request, con la integración continua en verde.
 
+- La rama se crea desde `develop` antes de empezar a trabajar, y se borra al fusionar su pull request.
+- `main` solo recibe `develop` al cerrar cada fase.
+
 ## Formato de los commits
 
 El mensaje empieza con el nombre de la rama, seguido de dos puntos y de lo que se hizo:
@@ -24,6 +27,16 @@ El mensaje empieza con el nombre de la rama, seguido de dos puntos y de lo que s
 feature/issue0: añade el workspace de la API
 bugfix/health-endpoint: corrige el código de estado
 ```
+
+Los mensajes no llevan líneas de coautoría ni pies añadidos por herramientas.
+
+## Issues y pull requests
+
+- Cada trabajo empieza con una issue creada con la plantilla de `.github/ISSUE_TEMPLATE/issue.md`: Resumen, Entregables, Dependencias, Decisiones técnicas, Flujo de trabajo, Verificación, Criterios de aceptación y Fuera de alcance.
+- Las issues del roadmap se titulan por su lugar en él («Issue #8 — …»); las demás llevan letra: F para el cierre de una fase y M para el mantenimiento. Ver `docs/roadmap.md`.
+- El pull request sigue la plantilla de `.github/pull_request_template.md` y enlaza su issue con `Closes #<número de GitHub>`.
+- Al cerrar una issue se documenta en un comentario de cierre: qué se entregó, dependencias, decisiones, verificación con su salida real, estado del remoto tras la fusión y criterios de aceptación marcados.
+- Toda issue queda asignada a su responsable.
 
 ## Comprobaciones de calidad
 
