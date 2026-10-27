@@ -11,6 +11,7 @@ import { usePhotos } from '../hooks/usePhotos';
 import { readLegacyRecord } from '../storage/schema';
 import type { BoardStorage, UnreadableCopy } from '../storage/storage';
 import type { BoardStore } from '../store/boardStore';
+import type { Persistence } from '../pwa/persistentStorage';
 import styles from './AccountScreen.module.css';
 import type { AuthMode } from './AuthScreen';
 
@@ -19,6 +20,8 @@ interface AccountScreenProps {
   sync: Sync;
   store: BoardStore;
   storage: BoardStorage;
+  /** Si el navegador ha concedido no borrar los datos de la web. */
+  persistence?: Persistence | null;
   onOpenAuth: (mode: AuthMode) => void;
   onBack: () => void;
 }
@@ -33,6 +36,7 @@ export function AccountScreen({
   sync,
   store,
   storage,
+  persistence = null,
   onOpenAuth,
   onBack,
 }: AccountScreenProps) {
@@ -134,6 +138,13 @@ export function AccountScreen({
             Con una cuenta, tus tableros se guardan también en el servidor y
             aparecen en todos tus dispositivos.
           </p>
+          {persistence === 'denied' && (
+            <p className={styles.warning}>
+              Este navegador puede borrar los datos de la web si se queda sin
+              espacio. Para no perder tus tableros, crea una cuenta o instala
+              BingoGoals en el dispositivo.
+            </p>
+          )}
           <div className={styles.actions}>
             <Button onClick={() => onOpenAuth('register')}>Crear cuenta</Button>
             <Button variant="secondary" onClick={() => onOpenAuth('login')}>

@@ -12,6 +12,27 @@ const PNG = Buffer.from(
   'base64',
 );
 
+/**
+ * Anota lo que bloquee la política de seguridad de contenido. Las fotos, la
+ * API y el service worker tienen que funcionar con ella.
+ */
+async function watchPolicy(page: Page) {
+  await page.addInitScript(() => {
+    const violations: string[] = [];
+    Object.assign(window, { policyViolations: violations });
+    document.addEventListener('securitypolicyviolation', (event) => {
+      violations.push(`${event.effectiveDirective}: ${event.blockedURI}`);
+    });
+  });
+}
+
+function policyViolations(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () =>
+      (window as unknown as { policyViolations: string[] }).policyViolations,
+  );
+}
+
 function newEmail() {
   return `fotos-${Date.now()}-${Math.round(Math.random() * 1e6)}@example.com`;
 }
@@ -21,7 +42,9 @@ async function newDevice(browser: Browser): Promise<Page> {
     baseURL: 'http://localhost:4173',
     viewport: { width: 360, height: 760 },
   });
-  return context.newPage();
+  const page = await context.newPage();
+  await watchPolicy(page);
+  return page;
 }
 
 async function signIn(
@@ -100,6 +123,7 @@ test('una foto viaja entre dispositivos y la antigua se borra del servidor', asy
   browser,
 }) => {
   const email = newEmail();
+  await watchPolicy(a);
   await a.goto('/');
   await a.getByRole('button', { name: 'Empezar ahora' }).click();
   await a.getByLabel('Título del tablero').fill('Con fotos');
@@ -147,6 +171,10 @@ test('una foto viaja entre dispositivos y la antigua se borra del servidor', asy
   await expect.poll(() => photoStatus(a, token, second)).toBe(404);
   await syncNow(b);
   await expect(firstCell(b)).toHaveCSS('background-image', 'none');
+
+  // Nada de lo anterior ha chocado con la política de seguridad.
+  expect(await policyViolations(a)).toEqual([]);
+  expect(await policyViolations(b)).toEqual([]);
 });
 
 test('un archivo que no es una imagen se rechaza con un aviso', async ({

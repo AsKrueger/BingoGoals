@@ -5,6 +5,10 @@ import { Notice, NoticeStack } from './components/Notice';
 import { useBoards } from './hooks/useBoards';
 import { PhotoContext } from './hooks/usePhotos';
 import { useSync } from './hooks/useSync';
+import {
+  usePersistentStorage,
+  type Persistence,
+} from './pwa/persistentStorage';
 import { AccountScreen } from './screens/AccountScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { BoardScreen } from './screens/BoardScreen';
@@ -56,6 +60,8 @@ interface AppProps {
   accountServices: AccountServices;
   /** Problema al leer los datos guardados, si lo hubo. */
   loadProblem?: LoadProblem | null;
+  /** Pide al navegador que no borre los datos. Se puede sustituir en los tests. */
+  requestPersistence?: () => Promise<Persistence>;
 }
 
 export function App({
@@ -64,6 +70,7 @@ export function App({
   photos: givenPhotos,
   accountServices,
   loadProblem = null,
+  requestPersistence,
 }: AppProps) {
   const [photos] = useState(
     () => givenPhotos ?? createPhotoStore(storage.photos),
@@ -81,6 +88,11 @@ export function App({
     );
     photos.collect(used).catch(() => {});
   }, [store, photos]);
+  // Se pide al navegador que no borre los datos en cuanto hay alguno.
+  const persistence = usePersistentStorage(
+    boards.boards.length > 0 || boards.history.length > 0,
+    requestPersistence,
+  );
   const { saveError, retrySave } = boards;
   const [showLoadProblem, setShowLoadProblem] = useState(loadProblem !== null);
   const [screen, setScreen] = useState<ScreenName>('board');
@@ -114,6 +126,7 @@ export function App({
           sync={sync}
           store={store}
           storage={storage}
+          persistence={persistence}
           onOpenAuth={setScreen}
           onBack={() => setScreen('board')}
         />
