@@ -6,7 +6,7 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "npm run build:domain && node scripts/parallel.mjs \"build:watch --workspace @bingogoals/domain\" \"dev --workspace @bingogoals/web\" \"dev --workspace @bingogoals/api\"",
@@ -32,7 +32,7 @@
     "typescript-eslint": "^8.71.1"
   },
   "allowScripts": {
-    "@prisma/engines@7.10.0": true,
-    "prisma@7.10.0": true
+    "@prisma/engines@7.10.1": true,
+    "prisma@7.10.1": true
   }
 }
