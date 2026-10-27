@@ -412,6 +412,16 @@ describe('migración de la versión 3: fotos dentro de los tableros', () => {
     );
   });
 
+  test('la fecha nueva supera a la anterior aunque el reloj vaya atrasado', async () => {
+    const old = v3Record('usuario-1');
+    const later = new Date(Date.now() + 60_000).toISOString();
+    await writeV3([{ ...old, board: { ...old.board, updatedAt: later } }]);
+
+    const [migrated] = loaded(await createIndexedDbStorage().load()).records;
+
+    expect(Date.parse(migrated!.board.updatedAt)).toBe(Date.parse(later) + 1);
+  });
+
   test('un tablero de una cuenta sin fotos no cambia', async () => {
     const plain = record(createBoard('Sin foto', '3x3'), {
       ownerId: 'usuario-1',
